@@ -29,7 +29,7 @@ export function adaptLegacyConfig(
     timeout: legacyConfig.timeout || 60000,
     port: legacyConfig.port,
     enabled: legacyConfig.enabled !== false,
-    transport: legacyConfig.transport as "supergateway" | "stdio" | undefined,
+    transport: legacyConfig.transport as "supergateway" | "stdio" | undefined ?? 'supergateway',
     healthCheck: legacyConfig.healthCheck,
   };
 }

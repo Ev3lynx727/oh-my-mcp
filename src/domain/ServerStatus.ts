@@ -10,6 +10,7 @@ export enum ServerStatus {
   STOPPED = "stopped",
   STARTING = "starting",
   RUNNING = "running",
+  STOPPING = "stopping", // intermediate state when stopping
   ERROR = "error",
 }
 

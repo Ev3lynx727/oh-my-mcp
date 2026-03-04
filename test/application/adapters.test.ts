@@ -77,7 +77,8 @@ describe('adapters', () => {
       expect(state.port).toBe(1234);
       expect(state.config.transport).toBe('supergateway');
       expect(state.config.healthCheck).toEqual({ interval: 10000 });
-      expect(state.health).toBe(true);
+      // health is a HealthStatus object; check its ok property
+      expect(state.health?.ok).toBe(true);
     });
 
     it('includes error in state when server is in error', () => {
@@ -89,6 +90,8 @@ describe('adapters', () => {
         timeout: 60000,
         enabled: true,
       });
+      // Prevent unhandled error event
+      server.on('error', () => {});
       server.markError('boom');
       const state = adaptToLegacyState(server);
       expect(state.status).toBe('error');

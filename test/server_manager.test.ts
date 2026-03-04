@@ -51,7 +51,7 @@ describe('ServerManager', () => {
     } as any;
     processManager = {
       startServer: vi.fn(),
-      stopServer: vi.fn(),
+      stopServer: vi.fn().mockResolvedValue(undefined),
       getProcess: vi.fn(),
       isRunning: vi.fn(() => true),
       restartServer: vi.fn(),
@@ -122,6 +122,7 @@ describe('ServerManager', () => {
         })),
         setAllocatedPort: vi.fn(),
         getProcess: vi.fn(() => null),
+        on: vi.fn(), // for event bridge
       } as any as MCPServer;
       manager.servers.set('s1', mockServer);
 
@@ -161,6 +162,7 @@ describe('ServerManager', () => {
         markStarting: vi.fn(),
         markRunning: vi.fn(),
         setAllocatedPort: vi.fn(),
+        on: vi.fn(), // for event bridge
       } as any as MCPServer;
       manager.servers.set('s1', mockServer);
 
@@ -241,6 +243,7 @@ describe('ServerManager', () => {
         isRunning: vi.fn(() => true),
         updateHealth: vi.fn(),
         getPort: vi.fn(() => 8100),
+        on: vi.fn(),
       } as any as MCPServer;
       manager.servers.set('s1', mockServer);
       const mockTransport = {
@@ -265,6 +268,7 @@ describe('ServerManager', () => {
       const mockServer = {
         isRunning: vi.fn(() => true),
         getPort: vi.fn(() => 8100),
+        on: vi.fn(),
       } as any as MCPServer;
       manager.servers.set('s1', mockServer);
       const mockTransport = {

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AppMetrics } from '../../src/infrastructure/metrics/metrics.js';
+import { AppMetrics } from '../../../src/infrastructure/metrics/metrics.ts';
 
 describe('AppMetrics', () => {
   let metrics: AppMetrics;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HttpClient } from '../../src/infrastructure/http/HttpClient.js';
+import { HttpClient } from '../../../src/infrastructure/http/HttpClient.ts';
 
 describe('HttpClient', () => {
   let client: HttpClient;

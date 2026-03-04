@@ -50,7 +50,7 @@ export class MCPServer extends EventEmitter {
       env: config.env || {},
       timeout: config.timeout || 60000,
       // Optional fields
-      port: config.port ?? 0,
+      port: config.port, // keep undefined to indicate auto-allocated
       enabled: config.enabled !== false, // default true
       transport: config.transport,
       healthCheck: config.healthCheck,
@@ -58,7 +58,7 @@ export class MCPServer extends EventEmitter {
     this.state = {
       ...state,
       status: state.status || ServerStatus.STOPPED,
-      port: state.port || (config.port ?? 0),
+      port: state.port ?? (config.port ?? 0),
     };
   }
 
@@ -258,6 +258,20 @@ export class MCPServer extends EventEmitter {
     }
     this.emit('statusChange', this.state.status);
     this.emit('error', error);
+  }
+
+  /**
+   * Transition to STOPPING state.
+   * Should be called before stopping a running server.
+   *
+   * Throws if not currently RUNNING.
+   */
+  markStopping(): void {
+    if (this.state.status !== ServerStatus.RUNNING) {
+      throw new Error(`Cannot mark server ${this.id} as STOPPING from status ${this.state.status}`);
+    }
+    this.state.status = ServerStatus.STOPPING;
+    this.emit('statusChange', this.state.status);
   }
 
   /**

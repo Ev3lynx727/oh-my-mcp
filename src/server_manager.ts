@@ -273,7 +273,11 @@ export class ServerManager {
 
     try {
       const healthy = await transport.healthCheck(domainServer);
-      domainServer.updateHealth(healthy);
+      if (healthy) {
+        domainServer.updateHealth(true);
+      } else {
+        domainServer.updateHealth(false, "Health check returned false");
+      }
       return healthy;
     } catch (error: any) {
       domainServer.updateHealth(false, error.message);

@@ -4,6 +4,9 @@ import { mkdir, writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
+// Increase timeout for integration tests (they start a real server)
+const INTEGRATION_TIMEOUT = 150000; // 150 seconds
+
 // Helper: wait for a URL to return status 200 and optionally satisfy condition
 async function waitForURL(
   url: string,
@@ -28,7 +31,7 @@ async function waitForURL(
   throw new Error(`Timed out waiting for ${url}`);
 }
 
-describe('Real Gateway Integration', () => {
+describe('Real Gateway Integration', { timeout: INTEGRATION_TIMEOUT }, () => {
   let mainProcess: ChildProcess;
   const managementPort = 28080;
   const gatewayPort = 28090;

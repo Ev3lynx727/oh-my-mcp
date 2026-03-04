@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SuperGatewayTransport } from '../../src/infrastructure/transports/SuperGatewayTransport.js';
-import { HttpClient } from '../../src/infrastructure/http/HttpClient.js';
+import { SuperGatewayTransport } from '../../../src/infrastructure/transports/SuperGatewayTransport.ts';
+import { HttpClient } from '../../../src/infrastructure/http/HttpClient.ts';
 
 const mockPost = vi.fn();
 

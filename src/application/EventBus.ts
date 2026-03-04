@@ -9,28 +9,29 @@ type EventHandler = (...args: any[]) => void;
  *
  * Usage:
  *   const bus = new EventBus();
- *   bus.on('server.started', (id) => {...});
+ *   bus.subscribe('server.started', (id) => {...});
  *   bus.emit('server.started', serverId);
  */
 export class EventBus extends EventEmitter {
   /** Subscribe to an event */
-  on(event: string | symbol, listener: EventHandler): this {
-    return super.on(event, listener);
+  subscribe(event: string | symbol, handler: EventHandler): this {
+    return this.on(event, handler);
+  }
+
+  /** Unsubscribe from an event */
+  unsubscribe(event: string | symbol, handler: EventHandler): this {
+    return this.off(event, handler);
   }
 
   /** One-time subscription */
-  once(event: string | symbol, listener: EventHandler): this {
-    return super.once(event, listener);
+  subscribeOnce(event: string | symbol, handler: EventHandler): this {
+    return this.once(event, handler);
   }
 
-  /** Unsubscribe */
-  off(event: string | symbol, listener: EventHandler): this {
-    return super.off(event, listener);
-  }
-
-  /** Remove all listeners for an event */
-  removeAllListeners(event?: string | symbol): this {
-    return super.removeAllListeners(event);
+  /** Clear all subscribers */
+  clear(): this {
+    this.removeAllListeners();
+    return this;
   }
 
   /** Emit an event */

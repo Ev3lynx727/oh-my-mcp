@@ -34,6 +34,19 @@ jobs:
       - name: Run tests with coverage
         run: npm run test:coverage
 
+      - name: Create dummy config for integration tests
+        run: |
+          mkdir -p /tmp/oh-my-mcp-integration
+          cat > /tmp/oh-my-mcp-integration/config.yaml << 'EOF'
+          managementPort: 28080
+          gatewayPort: 28090
+          logLevel: info
+          servers:
+            dummy:
+              command: ["echo", "dummy"]
+              enabled: false
+          EOF
+
       # Optional: upload coverage to Codecov
       # - name: Upload coverage to Codecov
       #   uses: codecov/codecov-action@v3
