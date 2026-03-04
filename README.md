@@ -184,6 +184,10 @@ Architecture overview: `docs/architecture.md`.
 - WebSocket streaming support
 - OpenAPI specification
 
+## Credits
+
+- Uses [supergateway](https://github.com/supercorp-ai/supergateway) to bridge HTTP and stdio for MCP servers.
+
 ---
 
 ## Contributing
