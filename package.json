@@ -5,6 +5,9 @@
   "author": "ev3lynx727",
   "main": "dist/index.js",
   "type": "module",
+  "bin": {
+    "oh-my-mcp": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
