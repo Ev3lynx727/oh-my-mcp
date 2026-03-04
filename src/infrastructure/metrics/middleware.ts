@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { getMetrics } from './metrics';
+import { getMetrics } from './metrics.js';
 
 /**
  * Middleware to record HTTP request metrics.

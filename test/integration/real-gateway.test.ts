@@ -30,8 +30,8 @@ async function waitForURL(
 
 describe('Real Gateway Integration', () => {
   let mainProcess: ChildProcess;
-  const managementPort = 18080;
-  const gatewayPort = 18090;
+  const managementPort = 28080;
+  const gatewayPort = 28090;
   let configDir: string;
 
   beforeAll(async () => {
@@ -53,9 +53,8 @@ servers:
 `;
     await writeFile(configPath, configContent);
 
-    // Spawn the main process using compiled dist
-    mainProcess = spawn('node', ['dist/index.js'], {
-      cwd: configDir,
+    // Spawn the main process using compiled dist, passing config file as argument
+    mainProcess = spawn('node', ['dist/index.js', configPath], {
       stdio: 'inherit',
       env: { ...process.env, NODE_ENV: 'test' },
     });
@@ -169,5 +168,14 @@ servers:
       10000,
       (s) => s.status === 'running'
     );
+  });
+
+  it('should expose Prometheus metrics endpoint', async () => {
+    const res = await fetch(`http://localhost:${managementPort}/metrics`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/text\/plain/);
+    const text = await res.text();
+    expect(text).toContain('ohmy_mcp_servers_total');
+    expect(text).toContain('ohmy_mcp_requests_total');
   });
 });
