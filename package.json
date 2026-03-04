@@ -1,5 +1,5 @@
 {
-  "name": "oh-my-mcp",
+  "name": "@ev3lynx727/oh-my-mcp",
   "version": "1.0.0",
   "description": "Native MCP gateway with management layer on top of supergateway",
   "author": "ev3lynx727",
@@ -11,7 +11,25 @@
     "dev": "tsx watch src/index.ts",
     "lint": "eslint src --ext .ts",
     "test": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "config.example.yaml"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "chokidar": "^3.6.0",
