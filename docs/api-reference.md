@@ -1,338 +1,380 @@
 # API Reference
 
-Complete reference for oh-my-mcp REST API.
+oh-my-mcp exposes two HTTP APIs:
+
+- **Gateway API** – MCP JSON-RPC proxy (default port 8090)
+- **Management API** – Control plane for server lifecycle (default port 8080)
+
+Both APIs support CORS if needed (configure via reverse proxy). All endpoints return JSON unless noted.
+
+---
 
 ## Base URLs
 
-- **Management API**: `http://localhost:8080`
-- **Gateway API**: `http://localhost:8090`
+- Management: `http://localhost:8080`
+- Gateway: `http://localhost:8090`
+
+Adjust ports according to your configuration (`managementPort`, `gatewayPort`).
+
+---
 
 ## Authentication
 
-All endpoints (except `/health` and `/`) require Bearer token authentication.
+Management API endpoints (except `/health` and `/metrics`) require a bearer token.
 
-Include the token in the `Authorization` header:
-
-```
-Authorization: Bearer YOUR_TOKEN
-```
-
-## Management API Endpoints
-
-### Health Check
+Include header:
 
 ```
-GET /health
+Authorization: Bearer <your-token>
 ```
 
-Returns the health status of the oh-my-mcp service.
+Tokens are configured in `config.yaml`:
 
-**Response:**
+```yaml
+auth:
+  enabled: true
+  tokens:
+    - "secret1"
+    - "secret2"
+```
+
+The Gateway API also uses the same bearer token scheme for clients.
+
+If no tokens are configured or `auth.enabled` is false, all endpoints are open.
+
+---
+
+## Common Error Responses
+
+All endpoints may return:
+
+| Status | Body | Meaning |
+|--------|------|---------|
+| 401 | `{ "error": "Unauthorized" }` | Missing or invalid token |
+| 403 | `{ "error": "Forbidden" }` | Token not in allowlist (if configured) |
+| 404 | `{ "error": "Not Found" }` | Endpoint or server ID not found |
+| 429 | `{ "error": "Too many requests", "retryAfter": <seconds> }` | Rate limit exceeded |
+| 500 | `{ "error": "...", "details": ... }` | Internal server error |
+| 504 | `{ "error": "Gateway timeout", "detail": "..." }` | Request to backend MCP server timed out |
+
+---
+
+## Management API
+
+### GET /health
+
+Application health check. No authentication required.
+
+**Response 200:**
+
 ```json
 {
   "status": "ok",
-  "servers": 3
+  "servers": <number of enabled servers>
 }
 ```
 
 ---
 
-### List Servers
+### GET /servers
 
-```
-GET /servers
-```
+List all configured servers with their runtime status.
 
-Returns a list of all configured and running servers.
+**Headers:** `Authorization: Bearer ...`
 
-**Response:**
+**Response 200:**
+
 ```json
-{
-  "servers": [
-    {
-      "id": "memory",
-      "name": "memory",
-      "status": "running",
+[
+  {
+    "id": "example",
+    "name": "example",
+    "config": {
+      "command": ["npx", "-y", "@mcp/server"],
+      "env": {},
+      "timeout": 60000,
       "port": 8100,
-      "startedAt": "2026-03-04T10:00:00.000Z",
-      "config": {
-        "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
-        "timeout": 60000,
-        "enabled": true
-      }
-    }
-  ]
-}
+      "enabled": true,
+      "transport": "supergateway"
+    },
+    "status": "running",
+    "port": 8100,
+    "startedAt": "2024-01-01T00:00:00.000Z",
+    "health": true,
+    "error": null
+  }
+]
 ```
+
+`status` values: `stopped`, `starting`, `running`, `error`, `stopping`.
 
 ---
 
-### Get Server Details
+### GET /servers/:id
 
-```
-GET /servers/:id
-```
+Get detailed info for a single server (same fields as list entry).
 
-Returns details about a specific server.
+**Headers:** `Authorization: Bearer ...`
 
-**Parameters:**
-- `id` - Server identifier
+**Response:** 200 with server object, or 404 if not found.
+
+---
+
+### POST /servers/:id/start
+
+Start a stopped server.
+
+**Headers:** `Authorization: Bearer ...`
 
 **Response:**
+
+- 200 on success (server will transition to `starting` then `running`): `{ "started": true }`
+- 400 if server is already running or invalid state.
+- 404 if server not found.
+
+**Audit:** This action is logged to audit log.
+
+---
+
+### POST /servers/:id/stop
+
+Stop a running server.
+
+**Headers:** `Authorization: Bearer ...`
+
+**Response:**
+
+- 200 on success: `{ "stopped": true }`
+- 400 if server is already stopped.
+- 404 if not found.
+
+**Audit:** Logged.
+
+---
+
+### POST /servers/:id/restart
+
+Restart a server (stop then start).
+
+**Headers:** `Authorization: Bearer ...`
+
+**Response:**
+
+- 200: `{ "restarted": true }`
+- 404 if not found.
+
+**Audit:** Logged.
+
+---
+
+### POST /servers/_start-all
+
+Start all enabled servers (bulk operation).
+
+**Headers:** `Authorization: Bearer ...`
+
+**Response:** `{ "started": ["id1","id2"] }`
+
+**Audit:** ServerId field will be `"multiple"`.
+
+---
+
+### POST /servers/_stop-all
+
+Stop all running servers (bulk).
+
+**Headers:** `Authorization: Bearer ...`
+
+**Response:** `{ "stopped": ["id1","id2"] }`
+
+**Audit:** ServerId field will be `"multiple"`.
+
+---
+
+### GET /metrics
+
+Prometheus metrics exposition. No authentication.
+
+**Response 200:** `text/plain; version=0.0.4`
+
+Body:
+
+```
+# HELP process_cpu_seconds_total ...
+process_cpu_seconds_total 0.5
+# HELP ohmy_mcp_servers_total ...
+ohmy_mcp_servers_total{status="running"} 2
+...
+```
+
+See `docs/observation.md` for metric names and descriptions.
+
+---
+
+## Gateway API
+
+The gateway API speaks MCP over HTTP. Clients send JSON-RPC requests to `POST /mcp`.
+
+### POST /mcp
+
+Proxy any MCP method to the appropriate backend server. The server target is determined by the `Server-Id` header (or `default` server if absent).
+
+**Headers:**
+- `Server-Id` (optional): The ID of the MCP server to route to. If omitted, the `default` server (first enabled) is used.
+- `Authorization: Bearer ...` (if auth enabled)
+
+**Body:** JSON-RPC 2.0 request object:
+
 ```json
 {
-  "id": "memory",
-  "name": "memory",
-  "status": "running",
-  "port": 8100,
-  "startedAt": "2026-03-04T10:00:00.000Z",
-  "health": {
-    "ok": true,
-    "lastCheck": "2026-03-04T10:05:00.000Z"
-  },
-  "config": {
-    "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
-    "timeout": 60000,
-    "enabled": true
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": { "name": "client", "version": "1.0.0" }
   }
 }
 ```
 
----
+**Response:** Passed through from the backend server. Typical success: `200` with:
 
-### Start Server
-
-```
-POST /servers/:id/start
-```
-
-Starts a configured server.
-
-**Parameters:**
-- `id` - Server identifier
-
-**Response:**
 ```json
 {
-  "id": "memory",
-  "status": "running"
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": { ... }
 }
 ```
 
+**Error Responses:**
+
+- 400 if body invalid JSON or missing required fields.
+- 404 if requested server ID is not found or not running.
+- 504 if backend request times out.
+- 502 if backend returns an error (e.g., connection refused, invalid response).
+- 429 if rate limited.
+
+**Notes:**
+
+- The gateway does not interpret the JSON-RPC; it forwards to the server's `supergateway` endpoint.
+- Streaming (`notifications`) are not currently forwarded; the protocol is request/response only.
+
 ---
 
-### Stop Server
+## Configuration Example
 
+`config.yaml`:
+
+```yaml
+managementPort: 8080
+gatewayPort: 8090
+logLevel: info
+compression: true
+auth:
+  enabled: true
+  tokens:
+    - "my-secret-token"
+servers:
+  github:
+    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
+    env:
+      GITHUB_TOKEN: "${GH_TOKEN}"
+    timeout: 60000
+    enabled: true
+    transport: "supergateway"
+    healthCheck:
+      interval: 30000
+      timeout: 5000
+      unhealthyThreshold: 3
 ```
-POST /servers/:id/stop
-```
 
-Stops a running server.
+---
 
-**Parameters:**
-- `id` - Server identifier
+## Rate Limit Headers
 
-**Response:**
+Every response includes:
+
+- `X-RateLimit-Limit`: requests per window (e.g., 100)
+- `X-RateLimit-Remaining`: remaining requests in current window (0 when exhausted)
+
+When limited, also `Retry-After: <seconds>`.
+
+---
+
+## Request IDs
+
+The `request-id` middleware adds a unique `X-Request-ID` header to responses and includes the ID in logs. This helps trace a request across logs and metrics.
+
+---
+
+## Health Check Endpoint Variants
+
+In addition to `/health`, you can query per-server health via:
+
+`GET /servers/:id/health` – returns:
+
 ```json
 {
-  "id": "memory",
-  "status": "stopped"
-}
-```
-
----
-
-### Restart Server
-
-```
-POST /servers/:id/restart
-```
-
-Restarts a server (stops then starts).
-
-**Parameters:**
-- `id` - Server identifier
-
-**Response:**
-```json
-{
-  "id": "memory",
-  "status": "running"
-}
-```
-
----
-
-### Get Server Logs
-
-```
-GET /servers/:id/logs
-```
-
-Streams logs from a server process.
-
-**Parameters:**
-- `id` - Server identifier
-
-**Response:** Server-Sent Events (SSE) stream of log messages.
-
----
-
-### Server Health Check
-
-```
-GET /servers/:id/health
-```
-
-Performs a health check on a running server.
-
-**Parameters:**
-- `id` - Server identifier
-
-**Response:**
-```json
-{
-  "id": "memory",
+  "id": "github",
   "healthy": true,
-  "lastCheck": "2026-03-04T10:05:00.000Z"
+  "lastCheck": "2024-01-01T00:00:00.000Z"
 }
 ```
 
 ---
 
-### Get Server MCP Info
+## Metadata Endpoint
 
-```
-GET /servers/:id/info
-```
-
-Returns MCP capabilities (tools, resources, prompts) from a running server.
-
-**Parameters:**
-- `id` - Server identifier
-
-**Response:**
-```json
-{
-  "tools": [
-    {
-      "name": "create_memory",
-      "description": "Create a new memory",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "memory": { "type": "string" }
-        }
-      }
-    }
-  ],
-  "resources": [],
-  "prompts": []
-}
-```
+`GET /metadata` (if implemented) or similar will expose version and build info. Currently not present; will be added in future.
 
 ---
 
-### Start All Servers
+## Example Usage
 
-```
-POST /servers/_start-all
-```
-
-Starts all configured servers that have `enabled: true`.
-
-**Response:**
-```json
-{
-  "results": [
-    { "id": "memory", "status": "running" },
-    { "id": "github", "status": "running" },
-    { "id": "filesystem", "status": "error", "error": "Failed to start" }
-  ]
-}
-```
-
----
-
-### Stop All Servers
-
-```
-POST /servers/_stop-all
-```
-
-Stops all running servers.
-
-**Response:**
-```json
-{
-  "status": "stopped"
-}
-```
-
----
-
-## Gateway API Endpoints
-
-### MCP Proxy
-
-```
-POST /mcp/:serverId
-```
-
-Proxies MCP requests to the specified server.
-
-**Parameters:**
-- `serverId` - Server identifier (in URL path)
-
-**Headers:**
-- `Authorization` - Bearer token (required)
-- `Content-Type` - application/json
-- `Accept` - application/json, text/event-stream
-
-**Request Body:** JSON-RPC 2.0 MCP request
-
-**Example:**
 ```bash
-curl -X POST \
-  -H "Authorization: Bearer TOKEN" \
+# Health
+curl http://localhost:8080/health
+
+# List servers (with token)
+curl -H "Authorization: Bearer my-secret-token" \
+  http://localhost:8080/servers
+
+# Start a server
+curl -X POST -H "Authorization: Bearer my-secret-token" \
+  http://localhost:8080/servers/github/start
+
+# Proxy MCP initialize
+curl -X POST http://localhost:8090/mcp \
+  -H "Authorization: Bearer my-secret-token" \
   -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
-  http://localhost:8090/mcp/memory
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "test", "version": "0.1"}
+    }
+  }'
 ```
 
 ---
 
-## Error Responses
+## Versioning
 
-### 400 Bad Request
+The API is versioned implicitly; breaking changes will increment the major version and be reflected in the URL (e.g., `/v1/mcp`) in the future. Currently, all endpoints are at root.
 
-```json
-{
-  "error": "Missing server ID. Use /mcp/:serverId or X-MCP-Server header"
-}
-```
+---
 
-### 401 Unauthorized
+## WebSockets / Streaming
 
-```json
-{
-  "error": "Unauthorized"
-}
-```
+Not supported. The gateway operates in pure request/response mode. For streaming MCP notifications, a separate protocol extension may be added later.
 
-### 404 Not Found
+---
 
-```json
-{
-  "error": "Server 'github' not found"
-}
-```
+## OpenAPI Spec
 
-### 503 Service Unavailable
-
-```json
-{
-  "error": "Server 'github' is not running (status: stopped)"
-}
-```
+An OpenAPI/Swagger spec is not yet provided. Contributions welcome.
