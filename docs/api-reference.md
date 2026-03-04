@@ -24,7 +24,7 @@ Management API endpoints (except `/health` and `/metrics`) require a bearer toke
 
 Include header:
 
-```
+```text
 Authorization: Bearer <your-token>
 ```
 
@@ -34,8 +34,10 @@ Tokens are configured in `config.yaml`:
 auth:
   enabled: true
   tokens:
+
     - "secret1"
     - "secret2"
+
 ```
 
 The Gateway API also uses the same bearer token scheme for clients.
@@ -199,7 +201,7 @@ Prometheus metrics exposition. No authentication.
 
 Body:
 
-```
+```text
 # HELP process_cpu_seconds_total ...
 process_cpu_seconds_total 0.5
 # HELP ohmy_mcp_servers_total ...
@@ -220,6 +222,7 @@ The gateway API speaks MCP over HTTP. Clients send JSON-RPC requests to `POST /m
 Proxy any MCP method to the appropriate backend server. The server target is determined by the `Server-Id` header (or `default` server if absent).
 
 **Headers:**
+
 - `Server-Id` (optional): The ID of the MCP server to route to. If omitted, the `default` server (first enabled) is used.
 - `Authorization: Bearer ...` (if auth enabled)
 
@@ -275,7 +278,9 @@ compression: true
 auth:
   enabled: true
   tokens:
+
     - "my-secret-token"
+
 servers:
   github:
     command: ["npx", "-y", "@modelcontextprotocol/server-github"]

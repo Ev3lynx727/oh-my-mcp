@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - **Gateway**: Proxy MCP JSON-RPC over HTTP to backend servers
 - **Management API**: start/stop/restart servers, health checks, server list
 - **Transport abstraction** with `SuperGatewayTransport`
@@ -24,12 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Comprehensive test suite** with unit and integration tests
 
 ### Infrastructure
+
 - Domain layer with `MCPServer` state machine
 - Application layer: `ProcessManager`, `PortAllocator`, `EventBus`, `HealthChecker`
 - Infrastructure: `HttpClient`, `ConfigCache`, `TransportFactory`
 - Middleware: `request-id`, `error-handler`, `timeout`, `rate-limit`, `audit`, `logging`, `metrics`, `compression`
 
 ### Documentation
+
 - Architecture guide
 - Observability guide
 - Deployment guides (Docker, Kubernetes)

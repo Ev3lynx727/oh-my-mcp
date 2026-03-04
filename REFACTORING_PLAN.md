@@ -1,7 +1,7 @@
 # Refactoring Plan: oh-my-mcp
 
-**Created**: 2026-03-04  
-**Based on**: Architectural review (ghostclaw) - Vibe Score: 72/100  
+**Created**: 2026-03-04
+**Based on**: Architectural review (ghostclaw) - Vibe Score: 72/100
 **Goal**: Improve maintainability, testability, and scalability while preserving current functionality
 
 ---
@@ -9,6 +9,7 @@
 ## 📋 Executive Summary
 
 This refactoring plan addresses key architectural issues in oh-my-mcp:
+
 - **Tight coupling** in ServerManager and index.ts
 - **Missing domain models** and abstractions
 - **Hard-coded dependencies** (supergateway)
@@ -16,6 +17,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Race conditions** and error handling gaps
 
 **Expected Outcomes**:
+
 - 40% reduction in cyclomatic complexity per module
 - 100% unit test coverage for core logic
 - 50% faster startup time (through better health checks)
@@ -29,6 +31,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 **Scope**: P0-1 (Domain Models), P0-2 (ProcessManager), P0-3 (Hot-Reload Fix)
 
 **Deliverables**:
+
 - Domain layer with `MCPServer` class and comprehensive types (`ServerStatus`, `HealthStatus`, etc.)
 - ProcessManager extracted; ServerManager delegates lifecycle to it
 - Hot-reload race condition fixed: removed/disabled servers are now stopped on config change
@@ -54,11 +57,13 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ## 📅 Phased Implementation Plan
 
 ### **PHASE 1: Foundation & Quick Wins** (Week 1-2)
+
 **Goal**: Lay groundwork, fix critical bugs, improve developer experience
 
 #### P0-Tasks (Must Do First)
 
 ##### **P0-1: Extract Domain Models**
+
 - **Effort**: 2 days
 - **Files to create**: `src/domain/Server.ts`, `src/domain/ServerStatus.ts`, `src/domain/HealthStatus.ts`
 - **Dependencies**: None
@@ -71,6 +76,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Migration**: Gradual - ServerManager can adopt progressively
 
 ##### **P0-2: Extract ProcessManager**
+
 - **Effort**: 1 day
 - **Files**: `src/application/ProcessManager.ts`
 - **Dependencies**: P0-1 (uses MCPServer)
@@ -84,6 +90,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Refactor**: Move spawn/child process logic out of ServerManager
 
 ##### **P0-3: Fix Hot-Reload Race Condition**
+
 - **Effort**: 2 hours
 - **File**: `src/index.ts` (watchConfig handler)
 - **Dependencies**: P0-1, P0-2 (need manager interface changes)
@@ -95,6 +102,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P0-4: Add Graceful Shutdown with Timeout**
+
 - **Effort**: 2 hours
 - **File**: `src/index.ts`
 - **Dependencies**: P0-2 (ensure stopAll() is reliable)
@@ -107,6 +115,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P1-1: Port Allocator with Release**
+
 - **Effort**: 1 day
 - **Files**: `src/application/PortAllocator.ts`
 - **Dependencies**: P0-1 (needs MCPServer.port tracking)
@@ -122,6 +131,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Validated**: stop/start reuses auto port 8100; manual port conflict error works
 
 ##### **P1-2: Error Handling Middleware**
+
 - **Effort**: 3 hours
 - **Files**: `src/middleware/error-handler.ts`, update `src/index.ts`
 - **Dependencies**: None
@@ -135,6 +145,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P1-3: Request ID Tracking**
+
 - **Effort**: 3 hours
 - **Files**: `src/middleware/request-id.ts`, update `src/index.ts`
 - **Dependencies**: None
@@ -150,11 +161,13 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ---
 
 ### **PHASE 2: ServerManager Split & DI** (Week 3-4)
+
 **Goal**: Single Responsibility, Testability
 
 #### P2-Tasks
 
 ##### **P2-1: HealthChecker Class**
+
 - **Effort**: 1 day
 - **Files**: `src/application/HealthChecker.ts`
 - **Status**: ✅ Complete
@@ -167,6 +180,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: Minor; HealthChecker not yet used by ServerManager (inline health still present)
 
 ##### **P2-2: HTTP Client Abstraction**
+
 - **Effort**: 1 day
 - **Files**: `src/infrastructure/http/HttpClient.ts`
 - **Status**: ✅ Complete
@@ -179,6 +193,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (new utility, used by HealthChecker)
 
 ##### **P2-3: Config Refactor - Caching Layer**
+
 - **Effort**: 2 days
 - **Files**: `src/infrastructure/config/ConfigCache.ts`
 - **Status**: ✅ Complete
@@ -191,6 +206,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (internal utility)
 
 ##### **P2-4: Event Bus Abstraction**
+
 - **Effort**: 1 day
 - **Files**: `src/application/EventBus.ts`
 - **Status**: ✅ Complete
@@ -202,6 +218,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: Moderate; ServerManager no longer extends EventEmitter but proxies methods
 
 ##### **P2-5: Simple Dependency Injection Container**
+
 - **Effort**: 1 day
 - **Files**: `src/di/container.ts`, `src/di/modules/app.module.ts`
 - **Status**: ✅ Complete
@@ -213,6 +230,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: Major; `index.ts` now uses container to resolve ServerManager
 
 ##### **P2-6: Refactor ServerManager to Use DI Components**
+
 - **Effort**: 2 days
 - **Files**: `src/server_manager.ts` (rewritten)
 - **Status**: ✅ Complete
@@ -228,11 +246,13 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ---
 
 ### **PHASE 3: Transport Abstraction** (Week 5-6)
+
 **Goal**: Support diverse MCP server types
 
 #### P3-Tasks
 
 ##### **P3-1: Define Transport Interface**
+
 - **Effort**: 1 day
 - **Files**: `src/domain/Transport.ts`
 - **Dependencies**: P0-1
@@ -245,6 +265,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (new abstraction)
 
 ##### **P3-2: Implement SuperGatewayTransport**
+
 - **Effort**: 1 day
 - **Files**: `src/infrastructure/transports/SuperGatewayTransport.ts`
 - **Dependencies**: P3-1
@@ -256,6 +277,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: Moderate - ServerManager/ProcessManager use Transport instead of direct spawn
 
 ##### **P3-3: Implement DirectStdioTransport**
+
 - **Effort**: 1 day
 - **Files**: `src/infrastructure/transports/DirectStdioTransport.ts`
 - **Dependencies**: P3-1, P3-2
@@ -267,6 +289,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (new transport type)
 
 ##### **P3-4: Transport Factory**
+
 - **Effort**: 3 hours
 - **Files**: `src/infrastructure/transports/TransportFactory.ts`
 - **Dependencies**: P3-1, P3-2, P3-3
@@ -277,6 +300,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (internal choice)
 
 ##### **P3-5: Update Config Schema for Transport**
+
 - **Effort**: 2 hours
 - **Files**: `src/config.ts`
 - **Dependencies**: P3-1
@@ -287,6 +311,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (optional field)
 
 ##### **P3-6: Update ServerManager to Use Transports**
+
 - **Effort**: 1 day
 - **Files**: `src/application/ServerManager.ts` (or ProcessManager)
 - **Dependencies**: P3-4
@@ -299,11 +324,13 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ---
 
 ### **PHASE 4: Testing Infrastructure** (Week 7-8)
+
 **Goal**: 80%+ coverage, confidence in changes
 
 #### P4-Tasks
 
 ##### **P4-1: Setup Test Framework**
+
 - **Effort**: 1 day
 - **Files**: Install vitest, create `test/` directory, `vitest.config.ts`
 - **Dependencies**: None
@@ -315,6 +342,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-2: Mock Infrastructure**
+
 - **Effort**: 2 days
 - **Files**: `test/mocks/child-process.ts`, `test/mocks/http.ts`, `test/mocks/fs.ts`
 - **Dependencies**: P4-1
@@ -326,6 +354,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-3: Unit Tests - ProcessManager**
+
 - **Effort**: 1 day
 - **Files**: `test/application/ProcessManager.test.ts`
 - **Dependencies**: P4-2, P0-2
@@ -339,6 +368,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-4: Unit Tests - PortAllocator**
+
 - **Effort**: 3 hours
 - **Files**: `test/application/PortAllocator.test.ts`
 - **Dependencies**: P2-1
@@ -351,6 +381,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-5: Unit Tests - ConfigLoader**
+
 - **Effort**: 1 day
 - **Files**: `test/infrastructure/config/ConfigLoader.test.ts`
 - **Dependencies**: P2-3 (with mocks)
@@ -363,6 +394,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-6: Unit Tests - HealthChecker**
+
 - **Effort**: 1 day
 - **Files**: `test/application/HealthChecker.test.ts`
 - **Dependencies**: P2-2, P4-2
@@ -375,6 +407,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-7: Integration Tests - Full Flow**
+
 - **Effort**: 2 days
 - **Files**: `test/integration/gateway.test.ts`, `test/integration/management-api.test.ts`
 - **Dependencies**: P4-1 through P4-6, real supergateway server
@@ -389,6 +422,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (tests only)
 
 ##### **P4-8: CI/CD Pipeline**
+
 - **Effort**: 1 day
 - **Files**: `.github/workflows/ci.yml` or similar
 - **Dependencies**: P4-1 to P4-7
@@ -404,11 +438,13 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ---
 
 ### **PHASE 5: Advanced Features** (Week 9-10)
+
 **Goal**: Production readiness, observability
 
 #### P4-Tasks (Lower Priority)
 
 ##### **P4-9: Prometheus Metrics**
+
 - **Effort**: 1 day
 - **Files**: `src/infrastructure/metrics/metrics.ts`, middleware
 - **Dependencies**: P2-5 (can inject metrics service)
@@ -420,6 +456,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (new endpoint)
 
 ##### **P4-10: Response Compression**
+
 - **Effort**: 3 hours
 - **Files**: `src/index.ts` (add compression middleware)
 - **Dependencies**: None
@@ -430,6 +467,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-11: Request Timeouts**
+
 - **Effort**: 1 day
 - **Files**: Middleware for gateway, healthChecker config
 - **Dependencies**: P2-2 (HttpClient has timeout)
@@ -441,6 +479,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-12: Rate Limiting**
+
 - **Effort**: 2 days
 - **Files**: `src/middleware/rate-limit.ts`
 - **Dependencies**: None
@@ -452,6 +491,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P4-13: Audit Logging**
+
 - **Effort**: 1 day
 - **Files**: `src/middleware/audit.ts`
 - **Dependencies**: P1-3 (reuse request ID)
@@ -465,11 +505,13 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ---
 
 ### **PHASE 6: Documentation & Polish** (Week 11-12)
+
 **Goal**: Complete docs, known production deployment
 
 #### P5-Tasks
 
 ##### **P5-1: Update Architecture Documentation**
+
 - **Effort**: 2 days
 - **Files**: `docs/architecture.md`
 - **Dependencies**: P0-P3 (after refactor)
@@ -481,6 +523,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None (docs only)
 
 ##### **P5-2: Deployment Guides**
+
 - **Effort**: 1 day
 - **Files**: `docs/deployment-docker.md`, `docs/deployment-k8s.md`
 - **Dependencies**: P4 (feature complete)
@@ -492,6 +535,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P5-3: Troubleshooting Guide Enhancement**
+
 - **Effort**: 1 day
 - **Files**: `docs/troubleshooting.md`
 - **Dependencies**: P4 (testing reveals common issues)
@@ -503,6 +547,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: None
 
 ##### **P5-4: Upgrade Guide from v1.0**
+
 - **Effort**: 1 day
 - **Files**: `docs/upgrade-v1-to-v2.md`
 - **Acceptance**:
@@ -513,6 +558,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Breaking changes**: Depends on Phase 3+ decisions
 
 ##### **P5-5: Performance Tuning Guide**
+
 - **Effort**: 1 day
 - **Files**: `docs/performance-tuning.md`
 - **Acceptance**:
@@ -527,20 +573,24 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ## 🔄 Backward Compatibility Strategy
 
 ### **Phase 1-2**: 100% backward compatible
+
 - No breaking changes to API or config
 - Existing deployments work unchanged
 
 ### **Phase 3**: Opt-in features
+
 - New transport type is optional
 - Default behavior (supergateway) unchanged
 - Config field is optional with default
 
 ### **Phase 2-5**: Internal refactors only
+
 - Changes confined to `src/` internals
 - Public API (Express routes) unchanged
 - Config schema backward compatible
 
 ### **Phase 5**: Version bump to v2.0 if needed
+
 - If any breaking changes, document clearly
 - Provide migration guide
 - Support v1 config format with deprecation warning
@@ -550,24 +600,28 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ## 📊 Success Metrics
 
 ### **Code Quality**
+
 - [ ] TypeScript errors: 0
 - [ ] ESLint warnings: < 10
 - [ ] Test coverage: >80% lines, >90% core logic
 - [ ] Cyclomatic complexity avg: < 10 per function
 
 ### **Performance**
+
 - [ ] Startup time (20 servers): < 10s (currently unknown baseline)
 - [ ] Memory usage: < 150MB for 20 servers
 - [ ] Request latency p99: < 100ms
 - [ ] Health check overhead: < 5% CPU
 
 ### **Developer Experience**
+
 - [ ] Local dev setup: < 30 minutes
 - [ ] Build times: < 10s
 - [ ] Test suite: < 2 minutes
 - [ ] Debugging: request ID traceability
 
 ### **Operational**
+
 - [ ] Uptime: 99.9% (no crashes)
 - [ ] Mean time to recovery (MTTR): < 1 minute (auto-restart)
 - [ ] Log clarity: PII redacted, structured JSON
@@ -591,6 +645,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 ## 📦 Deliverables per Phase
 
 ### Phase 1
+
 - Domain models created
 - ProcessManager extracted
 - Hot-reload bug fixed
@@ -601,6 +656,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Tag**: `refactor/phase-1-complete`
 
 ### Phase 2
+
 - HealthChecker class
 - HTTP client abstraction
 - Config cache
@@ -610,6 +666,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Tag**: `refactor/phase-2-complete`
 
 ### Phase 3
+
 - Transport abstraction
 - SuperGatewayTransport
 - DirectStdioTransport
@@ -618,6 +675,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Tag**: `refactor/phase-3-complete`
 
 ### Phase 4
+
 - Vitest configured
 - Mock infrastructure
 - Unit tests for all core classes
@@ -626,6 +684,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Tag**: `refactor/phase-4-complete`
 
 ### Phase 5
+
 - Metrics endpoint
 - Compression
 - Timeouts
@@ -634,6 +693,7 @@ This refactoring plan addresses key architectural issues in oh-my-mcp:
 - **Tag**: `refactor/phase-5-complete`
 
 ### Phase 6
+
 - Updated architecture docs
 - Docker/K8s deployment guides
 - Enhanced troubleshooting
@@ -663,6 +723,7 @@ These are low-effort, high-value improvements that don't require major refactori
 ## 📚 Related Documentation
 
 Keep these docs updated during refactoring:
+
 - `docs/architecture.md` - Update after each phase
 - `docs/development.md` - Add testing instructions, debugging tips
 - `docs/api-reference.md` - Add new endpoints (metrics, health enhancements)
@@ -699,14 +760,16 @@ After completing a task:
 
 ## 📞 Coordination
 
-**Who**: You (the assistant) and the human maintainer  
-**How**: 
+**Who**: You (the assistant) and the human maintainer
+**How**:
+
 - Daily sync on progress
 - PRs for each phase (not per task)
 - Test in staging environment before merge
 - Tag releases after each phase
 
 **Communication**:
+
 - Update `memory/YYYY-MM-DD.md` daily
 - Create issues in GitHub for any blockers
 - Keep docs in sync with implementation

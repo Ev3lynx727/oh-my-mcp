@@ -1,128 +1,197 @@
 # oh-my-mcp
 
-Native MCP gateway with management layer on top of supergateway.
+> Manage MCP servers and proxy JSON-RPC over HTTP
 
-Built by [ev3lynx727](https://github.com/Ev3lynx727)
+oh-my-mcp is a gateway and process manager for [Model Context Protocol](https://github.com/modelcontextprotocol/spec) servers. It starts MCP servers (via supergateway), monitors their health, and exposes a unified HTTP API for clients like Claude Desktop, Cursor, and Windsurf.
+
+---
 
 ## Features
 
-- **Process Management**: Start/stop/restart MCP servers with auto-restart on crash
-- **Config-driven**: Define servers in YAML/JSON, hot-reload on changes
-- **Unified Gateway**: Single endpoint `/mcp/:serverId` to access all servers
-- **Health Monitoring**: Automatic health checks for all running servers
-- **Tool Discovery**: Auto-discover tools, resources, prompts from running servers
-- **Auth**: Bearer token authentication
-- **Logs**: Stream logs from running servers
+- **Process management**: start/stop/restart individual or all servers with automatic restart on failure.
+- **HTTP gateway**: Proxy MCP JSON-RPC (`POST /mcp`) with server selection via `Server-Id` header.
+- **Observability**:
+  - Prometheus metrics (`/metrics`)
+  - Structured JSON logging (request/response + audit)
+  - Rate limiting (per-IP management, per-token gateway)
+  - Request timeouts (60s gateway, 120s management)
+- **Configuration as code**: YAML config with hot-reload; Zod validation.
+- **Transport abstraction**: currently HTTP via supergateway; stdio transport planned.
+- **Docker & Kubernetes ready**: deploy with included guides.
+
+---
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-npm install
+# 1. Clone and build
+git clone https://github.com/ev3lynx/oh-my-mcp
+cd oh-my-mcp
+npm ci
+npm run build
 
-# Copy config example
+# 2. Create config (see config.example.yaml)
 cp config.example.yaml config.yaml
+# Edit config.yaml with your MCP servers
 
-# Edit config.yaml with your settings
-# - Set your auth token
-# - Configure servers
-
-# Start the gateway
-npm run dev
+# 3. Run
+node dist/index.js config.yaml
 ```
 
-## API
+The app starts:
 
-### Management API (port 8080)
+- Management API on `http://localhost:8080`
+- Gateway API on `http://localhost:8090`
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/servers` | List all servers |
-| GET | `/servers/:id` | Get server details |
-| POST | `/servers/:id/start` | Start a server |
-| POST | `/servers/:id/stop` | Stop a server |
-| POST | `/servers/:id/restart` | Restart a server |
-| GET | `/servers/:id/logs` | Stream server logs |
-| GET | `/servers/:id/health` | Check server health |
-| GET | `/servers/:id/info` | Get MCP tools/resources |
-| POST | `/servers/_start-all` | Start all configured servers |
-| POST | `/servers/_stop-all` | Stop all servers |
+---
 
-### Gateway API (port 8090)
+## Configuration
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/mcp/:serverId` | Proxy MCP request to server |
-
-## Config
+`config.yaml`:
 
 ```yaml
 managementPort: 8080
 gatewayPort: 8090
 logLevel: info
+compression: true
 
 auth:
+  enabled: true
   tokens:
     - "your-secret-token"
 
 servers:
   github:
-    command:
-      - "npx"
-      - "-y"
-      - "@modelcontextprotocol/server-github"
+    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
     env:
-      GITHUB_PERSONAL_ACCESS_TOKEN: "{env:GITHUB_TOKEN}"
+      GITHUB_TOKEN: "${GH_TOKEN}"
     timeout: 60000
     enabled: true
+    transport: "supergateway"
+    healthCheck:
+      interval: 30000
+      timeout: 5000
+      unhealthyThreshold: 3
 ```
 
-## Using with systemd
+See `config.example.yaml` for all options.
 
-```ini
-# /etc/systemd/system/oh-my-mcp.service
-[Unit]
-Description=oh-my-mcp - Native MCP Gateway
-After=network.target
+---
 
-[Service]
-Type=simple
-User=ev3lynx
-WorkingDirectory=/home/ev3lynx/Project/oh-my-mcp
-ExecStart=/usr/bin/npm run start -- /home/ev3lynx/Project/oh-my-mcp/config.yaml
-Restart=always
-RestartSec=10
+## API
 
-[Install]
-WantedBy=multi-user.target
+### Management API (port 8080)
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/health` | GET | no | Application health: `{ status, servers }` |
+| `/servers` | GET | yes | List all servers with status |
+| `/servers/:id` | GET | yes | Get single server details |
+| `/servers/:id/start` | POST | yes | Start a server |
+| `/servers/:id/stop` | POST | yes | Stop a server |
+| `/servers/:id/restart` | POST | yes | Restart a server |
+| `/_start-all` | POST | yes | Start all enabled servers |
+| `/_stop-all` | POST | yes | Stop all running servers |
+| `/metrics` | GET | no | Prometheus metrics |
+
+**Authentication**: Include `Authorization: Bearer <token>` if auth enabled.
+
+### Gateway API (port 8090)
+
+`POST /mcp` proxies any JSON-RPC request to the selected backend.
+
+**Headers**:
+- `Server-Id` (optional): which server to route to (default: first enabled)
+- `Authorization: Bearer <token>` (if auth enabled)
+
+**Body**: Standard MCP JSON-RPC 2.0 request.
+
+Example:
+
+```bash
+curl -X POST http://localhost:8090/mcp \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
 ```
 
-## Client Configuration
+Response is passed through from the backend server.
 
-```json
-{
-  "mcpServers": {
-    "oh-my-mcp": {
-      "command": "curl",
-      "args": [
-        "-X", "POST",
-        "-H", "Authorization: Bearer YOUR_TOKEN",
-        "-H", "Content-Type: application/json",
-        "-d", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}",
-        "http://localhost:8090/mcp/github"
-      ]
-    }
-  }
-}
+---
+
+## Observability
+
+- **Metrics**: `GET http://localhost:8080/metrics` (Prometheus format). Includes:
+  - `ohmy_mcp_servers_total{status}`
+  - `ohmy_mcp_requests_total{method,route,status_code}`
+  - `ohmy_mcp_request_duration_seconds{method,route}`
+  - `process_*` system metrics
+- **Logging**: JSON logs to stdout. Request IDs in `X-Request-ID` and logs. Audit events logged with `component=audit`.
+- **Health**: `GET /health` for overall; per-server: `GET /servers/:id/health` (future).
+- **Rate limiting**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` headers.
+
+Full guide: `docs/observation.md`.
+
+---
+
+## Deployment
+
+### Docker
+
+```bash
+docker build -t oh-my-mcp .
+docker run -d -p 8080:8080 -p 8090:8090 -v $(pwd)/config.yaml:/app/config.yaml oh-my-mcp
 ```
 
-## Environment Variables
+See `docs/deployment/docker.md`.
 
-In config, use `{env:VAR_NAME}` to reference environment variables:
+### Kubernetes
 
-```yaml
-env:
-  GITHUB_TOKEN: "{env:GITHUB_TOKEN}"
+Manifests provided: `docs/deployment/kubernetes.md`.
+
+Use ConfigMap for config, Secret for tokens, and HPA for scaling.
+
+---
+
+## Development
+
+```bash
+npm run dev        # watch mode with tsx
+npm run build      # compile to dist
+npm test           # unit + integration
+npm run lint       # eslint
 ```
 
-This will be replaced with the actual value from `process.env`.
+Project structure:
+
+- `src/domain` – Pure domain model (`MCPServer`, `ServerTransport`)
+- `src/application` – ProcessManager, PortAllocator, EventBus, HealthChecker
+- `src/infrastructure` – Config, HTTP, transports, metrics
+- `src/middleware` – Express middleware (timeout, rate-limit, audit, logging, etc.)
+- `src/index.ts` – App bootstrap and wiring
+
+Architecture overview: `docs/architecture.md`.
+
+---
+
+## Roadmap
+
+- `DirectStdioTransport` for native stdio MCP servers
+- Distributed rate limiting (Redis)
+- OAuth2 / JWT authentication
+- React management UI
+- Request/response caching
+- WebSocket streaming support
+- OpenAPI specification
+
+---
+
+## Contributing
+
+See `docs/contributing.md`. We welcome issues and PRs.
+
+---
+
+## License
+
+MIT – see [LICENSE](LICENSE) for details.

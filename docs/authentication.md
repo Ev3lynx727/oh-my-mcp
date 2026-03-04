@@ -62,6 +62,7 @@ auth:
 ```
 
 Set before starting:
+
 ```bash
 export OH_MY_MCP_TOKEN=$(openssl rand -hex 32)
 npm run dev
@@ -83,11 +84,12 @@ sudo ufw allow from 192.168.1.0/24 to any port 8090
 
 Put oh-my-mcp behind a reverse proxy with TLS:
 
-```
+```text
 Client → HTTPS → Nginx (TLS) → HTTP → oh-my-mcp
 ```
 
 Nginx config example:
+
 ```nginx
 server {
     listen 443 ssl;
@@ -107,6 +109,7 @@ server {
 ### Rate Limiting
 
 Add rate limiting in nginx:
+
 ```nginx
 limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
 server {

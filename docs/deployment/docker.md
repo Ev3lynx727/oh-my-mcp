@@ -91,10 +91,10 @@ Start with `docker compose up -d`.
 
 ## Access
 
-- Management UI (if you add one): http://localhost:8080
-- Gateway endpoint (for clients): http://localhost:8090/mcp
-- Metrics: http://localhost:8080/metrics
-- Health: http://localhost:8080/health
+- Management UI (if you add one): <http://localhost:8080>
+- Gateway endpoint (for clients): <http://localhost:8090/mcp>
+- Metrics: <http://localhost:8080/metrics>
+- Health: <http://localhost:8080/health>
 
 ---
 

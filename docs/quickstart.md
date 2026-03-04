@@ -40,7 +40,8 @@ npm run dev
 ```
 
 You should see:
-```
+
+```text
 Loading config from: ./config.yaml
 Config loaded
 Starting oh-my-mcp
@@ -59,6 +60,7 @@ curl -H "Authorization: Bearer my-secret-token" http://localhost:8080/servers
 ```
 
 Response:
+
 ```json
 {
   "servers": [
@@ -126,26 +128,31 @@ The new servers will be automatically started!
 ## Common Operations
 
 ### Start a Server
+
 ```bash
 curl -X POST -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/github/start
 ```
 
 ### Stop a Server
+
 ```bash
 curl -X POST -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/github/stop
 ```
 
 ### Restart a Server
+
 ```bash
 curl -X POST -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/github/restart
 ```
 
 ### View Logs
+
 ```bash
 curl -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/github/logs
 ```
 
 ### Get MCP Server Info
+
 ```bash
 curl -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/github/info
 ```

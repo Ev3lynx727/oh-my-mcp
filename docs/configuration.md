@@ -155,6 +155,7 @@ To trigger a full restart, restart the oh-my-mcp process itself.
 If you're migrating from opencode's `opencode.jsonc`, convert each MCP server entry:
 
 **From opencode.jsonc:**
+
 ```json
 {
   "mcp": {
@@ -168,6 +169,7 @@ If you're migrating from opencode's `opencode.jsonc`, convert each MCP server en
 ```
 
 **To config.yaml:**
+
 ```yaml
 servers:
   github:
@@ -184,6 +186,7 @@ servers:
 ### Server Won't Start
 
 Check the logs:
+
 ```bash
 curl -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/server-name/logs
 ```
@@ -191,6 +194,7 @@ curl -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/server-name/
 ### Port Already in Use
 
 Change the port in your configuration:
+
 ```yaml
 managementPort: 8081
 gatewayPort: 8091
@@ -199,6 +203,7 @@ gatewayPort: 8091
 ### Environment Variable Not Found
 
 Make sure the environment variable is set before starting oh-my-mcp:
+
 ```bash
 export GITHUB_TOKEN=your_token
 npm run dev

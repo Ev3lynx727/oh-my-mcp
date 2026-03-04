@@ -72,6 +72,7 @@ curl -X POST -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/serv
 ## Limitations
 
 Hot reload:
+
 - ✅ Adds new servers
 - ✅ Changes to environment variables (for new servers)
 - ❌ Does not restart existing servers
@@ -103,6 +104,7 @@ sudo systemctl restart oh-my-mcp
 ### For Development
 
 Hot reload is great for development:
+
 - Add new servers quickly
 - Test configurations
 - No downtime
@@ -110,6 +112,7 @@ Hot reload is great for development:
 ### For Production
 
 In production, consider:
+
 - Test config changes in development first
 - Use rolling restarts for existing servers
 - Monitor logs during changes
@@ -123,7 +126,8 @@ logLevel: debug
 ```
 
 You'll see messages like:
-```
+
+```text
 {"level":30,"msg":"Config file changed, reloading..."}
 {"level":30,"msg":"Auto-starting server: fetch"}
 {"level":30,"msg":"Config hot-reloaded"}
@@ -138,11 +142,13 @@ You'll see messages like:
    - Pass explicit path: `node dist/index.js /path/to/config.yaml`
 
 2. **Check YAML is valid**
+
    ```bash
    python3 -c "import yaml; yaml.safe_load(open('config.yaml'))"
    ```
 
 3. **Check file permissions**
+
    ```bash
    ls -la config.yaml
    ```
@@ -150,11 +156,13 @@ You'll see messages like:
 ### Multiple Reloads
 
 If you see rapid reloading, the file watcher might be triggered by:
+
 - Auto-save in editors
 - Backup software
 - File indexing
 
 Solution: Edit in a separate file and copy when done:
+
 ```bash
 # Edit
 vim config.new.yaml

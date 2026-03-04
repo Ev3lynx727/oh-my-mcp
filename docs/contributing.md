@@ -60,13 +60,14 @@ Run tests with `npm test`. Use `--run` for CI mode: `npm test -- --run`.
 
 We use [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```text
 type(scope): subject
 
 body (optional)
 ```
 
 Types:
+
 - `feat`: new feature
 - `fix`: bug fix
 - `docs`: documentation only

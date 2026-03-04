@@ -252,7 +252,7 @@
 
 - [x] **P4-13: Audit Logging** (1 day) ✅ **COMPLETE**
   - [x] Created `src/middleware/audit.ts` with `auditMiddleware`
-  - [x] Audits POST management actions: start/stop/restart on individual servers, _start-all, _stop-all
+  - [x] Audits POST management actions: start/stop/restart on individual servers, _start-all,_stop-all
   - [x] Logs: timestamp (ISO), action, serverId, masked token (first 8 chars), IP, statusCode, durationMs
   - [x] Uses dedicated pino child logger with `component: 'audit'` for easy filtering
   - [x] Captures response via `res.on('finish')` after route handling
@@ -386,4 +386,4 @@ These are independent improvements:
 
 ---
 
-**Start tomorrow with P0-1: Extract Domain Models. You got this! 🚀**
+## Start tomorrow with P0-1: Extract Domain Models. You got this! 🚀

@@ -21,10 +21,12 @@ Restart=always
 RestartSec=10
 
 # Environment variables (optional - can also use .env file)
+
 Environment=NODE_ENV=production
 Environment=GITHUB_TOKEN=your_github_token
 
 # Security hardening
+
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
@@ -46,32 +48,40 @@ Update the paths to match your installation:
 ## Install the Service
 
 ```bash
+
 # Reload systemd
+
 sudo systemctl daemon-reload
 
 # Enable on boot
+
 sudo systemctl enable oh-my-mcp
 
 # Start the service
+
 sudo systemctl start oh-my-mcp
 
 # Check status
+
 sudo systemctl status oh-my-mcp
 ```
 
 ## Service Management Commands
 
 ### Start
+
 ```bash
 sudo systemctl start oh-my-mcp
 ```
 
 ### Stop
+
 ```bash
 sudo systemctl stop oh-my-mcp
 ```
 
 ### Restart
+
 ```bash
 sudo systemctl restart oh-my-mcp
 ```
@@ -79,13 +89,17 @@ sudo systemctl restart oh-my-mcp
 ### View Logs
 
 ```bash
+
 # Recent logs
+
 sudo journalctl -u oh-my-mcp -n 50
 
 # Follow logs
+
 sudo journalctl -u oh-my-mcp -f
 
 # Logs since last boot
+
 sudo journalctl -u oh-my-mcp -b
 ```
 
@@ -100,11 +114,13 @@ sudo systemctl status oh-my-mcp
 ### Service Won't Start
 
 Check logs:
+
 ```bash
 sudo journalctl -u oh-my-mcp -e
 ```
 
 Common issues:
+
 - **Port in use**: Change ports in config.yaml
 - **Missing dependencies**: Run `npm install` in the project directory
 - **Wrong paths**: Verify ExecStart paths are correct
@@ -112,6 +128,7 @@ Common issues:
 ### Permission Denied
 
 Make sure the user has access to:
+
 - The project directory
 - Any directories accessed by MCP servers (e.g., filesystem server)
 
@@ -120,7 +137,9 @@ Make sure the user has access to:
 Use `Environment=` in the service file, or create a `.env` file:
 
 ```bash
+
 # In project directory
+
 echo "GITHUB_TOKEN=your_token" > .env
 echo "CONTEXT7_API_KEY=your_key" >> .env
 ```
@@ -131,20 +150,25 @@ echo "CONTEXT7_API_KEY=your_key" >> .env
 
 ```ini
 [Service]
+
 # Don't allow privilege escalation
+
 NoNewPrivileges=true
 
 # Restrict system access
+
 ProtectSystem=strict
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 
 # Resource limits
+
 MemoryMax=1G
 CPUQuota=50%
 
 # Timeout
+
 TimeoutStartSec=60
 TimeoutStopSec=30
 ```
@@ -159,6 +183,7 @@ sudo chown -R mcp:mcp /home/ev3lynx/Project/oh-my-mcp
 ```
 
 Update service file:
+
 ```ini
 User=mcp
 Group=mcp
@@ -169,21 +194,27 @@ Group=mcp
 ### Update oh-my-mcp
 
 ```bash
+
 # Stop service
+
 sudo systemctl stop oh-my-mcp
 
 # Backup
+
 cp -r /home/ev3lynx/Project/oh-my-mcp /home/ev3lynx/Project/oh-my-mcp.backup
 
 # Pull updates
+
 cd /home/ev3lynx/Project/oh-my-mcp
 git pull
 
 # Rebuild
+
 npm install
 npm run build
 
 # Start service
+
 sudo systemctl start oh-my-mcp
 ```
 
@@ -191,7 +222,7 @@ sudo systemctl start oh-my-mcp
 
 Create `/etc/logrotate.d/oh-my-mcp`:
 
-```
+```text
 /home/ev3lynx/Project/oh-my-mcp/logs/*.log {
     daily
     rotate 7

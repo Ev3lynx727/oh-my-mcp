@@ -4,7 +4,7 @@ Guide for developers contributing to oh-my-mcp.
 
 ## Project Structure
 
-```
+```text
 oh-my-mcp/
 ├── src/
 │   ├── index.ts          # Main entry point
@@ -232,6 +232,7 @@ npm publish
 ### Server Manager
 
 The `ServerManager` class:
+
 - Spawns supergateway as child processes
 - Each MCP server gets its own port (8100+)
 - Monitors health via MCP protocol
@@ -240,6 +241,7 @@ The `ServerManager` class:
 ### Gateway Proxy
 
 The gateway:
+
 - Uses http-proxy-middleware
 - Routes `/mcp/:serverId` to appropriate port
 - Strips path prefix before proxying
@@ -247,6 +249,7 @@ The gateway:
 ### Authentication
 
 Simple bearer token:
+
 - Tokens configured in `config.yaml`
 - Middleware validates on every request
 - No token = 401 Unauthorized

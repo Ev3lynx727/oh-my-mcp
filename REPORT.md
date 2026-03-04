@@ -2,7 +2,7 @@
 
  🏗️ Architectural Review: oh-my-mcp
 
- ### Overall Vibe Score: 72/100
+### Overall Vibe Score: 72/100
 
  Solid foundation with clear separation of concerns, but some architectural ghosts and flow issues
 
@@ -10,7 +10,7 @@
 
  📊 Current Architecture Analysis
 
- ### Strengths ✅
+### Strengths ✅
 
  1. Clean separation between management API and gateway proxy
  2. Type-safe configuration with Zod schemas
@@ -19,76 +19,82 @@
  5. Proper logging with Pino
  6. Good error handling and process management with auto-restart
 
- ### Architectural Issues ⚠️
+### Architectural Issues ⚠️
 
- #### 1. Tight Coupling in index.ts (Vibe: 65/100)
+#### 1. Tight Coupling in index.ts (Vibe: 65/100)
 
  The main entry point does too much:
- - Creates two separate Express apps
- - Mounts middleware on both
- - Manages server initialization logic
- - Handles signal processing
+
+  - Creates two separate Express apps
+  - Mounts middleware on both
+  - Manages server initialization logic
+  - Handles signal processing
 
  Recommendation: Extract application bootstrap into a dedicated Application class.
 
- #### 2. ServerManager is Too Fat (Vibe: 60/100)
+#### 2. ServerManager is Too Fat (Vibe: 60/100)
 
  ServerManager handles:
- - Process lifecycle management
- - Port allocation
- - HTTP health checks
- - MCP info fetching
- - Event emission
- - Environment variable resolution
+
+  - Process lifecycle management
+  - Port allocation
+  - HTTP health checks
+  - MCP info fetching
+  - Event emission
+  - Environment variable resolution
 
  Recommendation: Split into smaller, focused classes:
- - ProcessManager (spawn/kill processes)
- - PortAllocator (port management)
- - HealthChecker (health checks)
- - MCPClient (MCP protocol communication)
 
- #### 3. Mixed Abstraction Levels in gateway.ts (Vibe: 68/100)
+  - ProcessManager (spawn/kill processes)
+  - PortAllocator (port management)
+  - HealthChecker (health checks)
+  - MCPClient (MCP protocol communication)
+
+#### 3. Mixed Abstraction Levels in gateway.ts (Vibe: 68/100)
 
  The gateway mixes routing logic with proxy configuration. Path parsing is duplicated.
 
  Recommendation: Extract ServerIdExtractor utility and create a dedicated GatewayProxy class.
 
- #### 4. Missing Domain Models (Vibe: 55/100)
+#### 4. Missing Domain Models (Vibe: 55/100)
 
  Currently using plain objects. No proper domain entities with methods.
 
  Recommendation: Create proper classes:
- - MCPServer (encapsulates state + behavior)
- - GatewayRequest (request context)
- - ManagementResponse (standardized responses)
 
- #### 5. Configuration Loading Monolith (Vibe: 70/100)
+  - MCPServer (encapsulates state + behavior)
+  - GatewayRequest (request context)
+  - ManagementResponse (standardized responses)
+
+#### 5. Configuration Loading Monolith (Vibe: 70/100)
 
  config_loader.ts handles loading, parsing, watching, and global state.
 
  Recommendation: Split into:
- - ConfigParser (YAML/JSON parsing)
- - ConfigValidator (Zod validation)
- - ConfigWatcher (file watching)
- - ConfigRegistry (global state)
 
- #### 6. Hard-coded supergateway dependency (Vibe: 50/100)
+  - ConfigParser (YAML/JSON parsing)
+  - ConfigValidator (Zod validation)
+  - ConfigWatcher (file watching)
+  - ConfigRegistry (global state)
+
+#### 6. Hard-coded supergateway dependency (Vibe: 50/100)
 
  server_manager.ts assumes all servers use supergateway. No abstraction for different MCP transport types.
 
  Recommendation: Define ServerTransport interface and support:
- - stdio + supergateway
- - SSE
- - WebSocket
- - Direct stdio (no gateway)
 
- #### 7. No Graceful Degradation (Vibe: 62/100)
+  - stdio + supergateway
+  - SSE
+  - WebSocket
+  - Direct stdio (no gateway)
+
+#### 7. No Graceful Degradation (Vibe: 62/100)
 
  If supergateway fails to install or run, the whole server crashes.
 
  Recommendation: Add fallback mechanisms and better error recovery.
 
- #### 8. Missing Testing Strategy (Vibe: 40/100)
+#### 8. Missing Testing Strategy (Vibe: 40/100)
 
  No tests visible. Architecture makes testing difficult due to tight coupling.
 
@@ -98,7 +104,7 @@
 
  🔧 Refactoring Blueprint
 
- ### Phase 1: Extract Core Abstractions (High Impact)
+### Phase 1: Extract Core Abstractions (High Impact)
 
  Create src/domain/:
 
@@ -131,11 +137,12 @@
  ```
 
  Benefits:
- - Encapsulates business rules
- - Enables in-memory repository for testing
- - Clear domain model
 
- ### Phase 2: Split ServerManager (Medium Impact)
+  - Encapsulates business rules
+  - Enables in-memory repository for testing
+  - Clear domain model
+
+### Phase 2: Split ServerManager (Medium Impact)
 
  ```typescript
    // application/ProcessManager.ts
@@ -165,11 +172,12 @@
  ```
 
  Benefits:
- - Single Responsibility Principle
- - Easier to test each component
- - Replaceable implementations
 
- ### Phase 3: Dependency Injection Container (High Impact)
+  - Single Responsibility Principle
+  - Easier to test each component
+  - Replaceable implementations
+
+### Phase 3: Dependency Injection Container (High Impact)
 
  Add a simple DI container (or use typedi):
 
@@ -185,11 +193,12 @@
  ```
 
  Benefits:
- - Decouples component creation
- - Enables mocking for tests
- - Clear dependency graph
 
- ### Phase 4: Transport Abstraction (Medium Impact)
+  - Decouples component creation
+  - Enables mocking for tests
+  - Clear dependency graph
+
+### Phase 4: Transport Abstraction (Medium Impact)
 
  ```typescript
    // domain/Transport.ts
@@ -215,11 +224,12 @@
  ```
 
  Benefits:
- - Supports more MCP server types
- - Easier to test without supergateway
- - Future-proof for new transports
 
- ### Phase 5: Configuration Layer Refactor (High Impact)
+  - Supports more MCP server types
+  - Easier to test without supergateway
+  - Future-proof for new transports
+
+### Phase 5: Configuration Layer Refactor (High Impact)
 
  ```typescript
    // infrastructure/config/
@@ -231,29 +241,30 @@
  ```
 
  Benefits:
- - Flexible config sources (file, env, remote)
- - Better performance with caching
- - Easier to add config validators
+
+  - Flexible config sources (file, env, remote)
+  - Better performance with caching
+  - Easier to add config validators
 
  ────────────────────────────────────────────────────────────────────────────────
 
  🎯 Priority Refactoring Roadmap
 
- ### Immediate (Do This Week):
+### Immediate (Do This Week)
 
  1. Extract ProcessManager from ServerManager
  2. Create proper MCPServer domain class
  3. Add DI container (even simple factory pattern)
  4. Separate gateway.ts routing from proxy logic
 
- ### Short-term (Next 2 Weeks):
+### Short-term (Next 2 Weeks)
 
  5. Implement PortAllocator with proper release on server stop
  6. Add comprehensive error boundaries in index.ts
  7. Create HealthChecker with configurable intervals
  8. Extract config loading into separate module with caching
 
- ### Medium-term (Next Month):
+### Medium-term (Next Month)
 
  9. Transport abstraction + direct stdio support
  10. Add request timeout middleware
@@ -265,7 +276,7 @@
 
  🛠️ Specific Code Enhancements
 
- ### 1. Fix: Race Condition in Hot-Reload
+### 1. Fix: Race Condition in Hot-Reload
 
  watchConfig loads config but index.ts doesn't handle servers that were removed from config.
 
@@ -283,7 +294,7 @@
    });
  ```
 
- ### 2. Add: Graceful Shutdown Timeout
+### 2. Add: Graceful Shutdown Timeout
 
  ```typescript
    process.on("SIGTERM", async () => {
@@ -296,7 +307,7 @@
    });
  ```
 
- ### 3. Add: Health Check Config
+### 3. Add: Health Check Config
 
  ```typescript
    // In ServerConfigSchema:
@@ -307,7 +318,7 @@
    }).optional(),
  ```
 
- ### 4. Fix: Port Leak on Start Failure
+### 4. Fix: Port Leak on Start Failure
 
  If waitForServer times out, the allocated port is never released.
 
@@ -327,7 +338,7 @@
    }
  ```
 
- ### 5. Add: Request ID Tracking
+### 5. Add: Request ID Tracking
 
  For better debugging across logs:
 
@@ -341,7 +352,7 @@
    }
  ```
 
- ### 6. Add: Response Compression
+### 6. Add: Response Compression
 
  Add compression middleware to gateway for large tool responses.
 
@@ -371,39 +382,44 @@
  Current architecture is hard to test. With refactoring:
 
  Unit Tests (60% coverage target):
- - ProcessManager (mock child_process)
- - PortAllocator (pure logic)
- - ConfigValidator (Zod schemas)
- - HealthChecker (mock fetch)
+
+  - ProcessManager (mock child_process)
+  - PortAllocator (pure logic)
+  - ConfigValidator (Zod schemas)
+  - HealthChecker (mock fetch)
 
  Integration Tests (40% coverage):
- - Spin up real MCP server via supergateway
- - Test full request flow through gateway
- - Test config hot-reload
- - Test graceful shutdown
+
+  - Spin up real MCP server via supergateway
+  - Test full request flow through gateway
+  - Test config hot-reload
+  - Test graceful shutdown
 
  ────────────────────────────────────────────────────────────────────────────────
 
  🎨 Tech Stack Alignment
 
  Node/Express Best Practices:
- - ✅ Middleware pattern used correctly
- - ⚠️ Should use express.Router more (already done for API/gateway)
- - ❌ Missing error handling middleware
- - ❌ No validation of request bodies (except auth)
- - ⚠️ Two separate apps could be one with mounted routers
+
+  - ✅ Middleware pattern used correctly
+  - ⚠️ Should use express.Router more (already done for API/gateway)
+  - ❌ Missing error handling middleware
+  - ❌ No validation of request bodies (except auth)
+  - ⚠️ Two separate apps could be one with mounted routers
 
  TypeScript Usage:
- - ✅ Strict mode enabled
- - ✅ Good use of Zod for runtime validation
- - ⚠️ Some any types in error handling
- - ⚠️ Missing unknown for error types
+
+  - ✅ Strict mode enabled
+  - ✅ Good use of Zod for runtime validation
+  - ⚠️ Some any types in error handling
+  - ⚠️ Missing unknown for error types
 
  ────────────────────────────────────────────────────────────────────────────────
 
  🚀 Quick Wins (Easy, High Value)
 
  1. Add error handling middleware to both apps:
+
  ```typescript
    app.use((err, req, res, next) => {
      logger.error({ err, path: req.path }, "Request error");
@@ -441,15 +457,17 @@
  7. Implement testing infrastructure
 
  Key Metric Targets:
- - Server startup time: < 5s (currently may time out at 30s)
- - Memory footprint: < 100MB for 20 servers
- - Request latency: < 50ms (p99) through gateway
- - Uptime: 99.9% (need crash recovery improvements)
+
+  - Server startup time: < 5s (currently may time out at 30s)
+  - Memory footprint: < 100MB for 20 servers
+  - Request latency: < 50ms (p99) through gateway
+  - Uptime: 99.9% (need crash recovery improvements)
 
  Risk Areas:
- - Single EventEmitter for all events could cause memory leaks on rapid server churn
- - No request timeouts on health checks (could hang)
- - Port allocation is sequential and could collide if manual ports used
- - Config reload doesn't handle server removals
+
+  - Single EventEmitter for all events could cause memory leaks on rapid server churn
+  - No request timeouts on health checks (could hang)
+  - Port allocation is sequential and could collide if manual ports used
+  - Config reload doesn't handle server removals
 
  ────────────────────────────────────────────────────────────────────────────────

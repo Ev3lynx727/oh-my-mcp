@@ -297,6 +297,7 @@ print(result)
    - `Content-Type`: `application/json`
    - `Accept`: `application/json, text/event-stream`
 4. **Body** (JSON):
+
 ```json
 {
   "jsonrpc": "2.0",
@@ -309,6 +310,7 @@ print(result)
 ### Save as Collection
 
 Save different requests for each server and method:
+
 - `oh-my-mcp / memory / tools/list`
 - `oh-my-mcp / github / tools/call`
 - etc.
@@ -335,6 +337,7 @@ curl -s -X POST \
 ```
 
 Usage:
+
 ```bash
 export OH_MY_MCP_TOKEN=your_token
 
@@ -395,6 +398,7 @@ server {
 ```
 
 Generate password:
+
 ```bash
 htpasswd -bc /etc/nginx/.htpasswd user password
 ```

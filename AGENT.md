@@ -7,7 +7,7 @@ oh-my-mcp is an OpenClaw agent that manages [Model Context Protocol](https://git
 - **Name:** oh-my-mcp
 - **Version:** 0.1.0
 - **Author:** ev3lynx
-- **Repository:** https://github.com/ev3lynx/oh-my-mcp
+- **Repository:** <https://github.com/ev3lynx/oh-my-mcp>
 - **License:** MIT
 
 ## Capabilities

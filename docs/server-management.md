@@ -82,6 +82,7 @@ curl -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/memory/healt
 ```
 
 Response:
+
 ```json
 {
   "id": "memory",
@@ -111,6 +112,7 @@ Returns tools, resources, and prompts available on the server.
 If a server process crashes, oh-my-mcp automatically attempts to restart it after 5 seconds.
 
 Check for crash logs:
+
 ```bash
 curl -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/memory/logs
 ```

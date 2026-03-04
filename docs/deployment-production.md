@@ -15,7 +15,7 @@ This guide covers production-ready deployment of oh-my-mcp, including security, 
 
 ## Architecture
 
-```
+```text
                     ┌─────────────────┐
                     │   DNS / LB      │
                     └────────┬────────┘
@@ -85,14 +85,17 @@ logLevel: info
 
 auth:
   tokens:
+
     - "${OH_MY_MCP_TOKEN}"  # Use environment variable
 
 servers:
   memory:
     command:
+
       - "npx"
       - "-y"
       - "@modelcontextprotocol/server-memory"
+
     enabled: true
 ```
 
@@ -260,6 +263,7 @@ echo "Backup complete: $DATE"
 ```
 
 Add to crontab:
+
 ```bash
 0 2 * * * /opt/oh-my-mcp/backup.sh
 ```
@@ -331,6 +335,7 @@ proxy_cache_path /tmp/nginx_cache levels=1:2 keys_zone=mcp_cache:10m max_size=1g
 ## High Availability
 
 For HA deployment:
+
 - Run multiple oh-my-mcp instances
 - Use load balancer with sticky sessions
 - Share configuration via NFS or etcd

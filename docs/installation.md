@@ -4,7 +4,7 @@ This guide covers how to install and set up oh-my-mcp.
 
 ## Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 - npx (comes with npm)
 
@@ -43,7 +43,7 @@ npm run dev
 
 You should see output like:
 
-```
+```text
 Loading config from: ./config.yaml
 {"level":30,"time":...,"servers":["memory"],"msg":"Config loaded"}
 {"level":30,"time":...,"managementPort":8080,"gatewayPort":8090,"servers":1,"msg":"Starting oh-my-mcp"}

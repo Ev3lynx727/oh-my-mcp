@@ -38,6 +38,7 @@
 **Goal**: Cache parsed config to avoid redundant file reads/parsing during rapid config changes.
 
 **Changes**:
+
 - In `config_loader.ts`:
   - Create a `ConfigCache<ValidatedConfig>` instance (singleton or module-level).
   - When `loadConfig` is called:
@@ -49,10 +50,12 @@
 - Optionally, log cache hit/miss for monitoring.
 
 **Impact**:
+
 - Reduces I/O and CPU during config churn.
 - No behavioral change from API perspective.
 
 **Validation**:
+
 - Rapid config edits (multiple changes in <1s) do not cause multiple file reads/parses.
 - Logs show cache usage if debug enabled.
 
@@ -63,6 +66,7 @@
 **Goal**: Use the robust HttpClient for all outgoing HTTP calls (health checks, server info, readiness probe).
 
 **Changes**:
+
 - Inject `HttpClient` into `ServerManager` via DI container:
   - Add to `AppModule.register`: `container.register(HttpClient, { useClass: HttpClient, singleton: true });`
   - Update `ServerManager` constructor to accept `httpClient: HttpClient`.
@@ -76,11 +80,13 @@
 - Ensure `HttpClient` is configured with reasonable defaults (timeout from server config or 5s default, retries 0 or 1).
 
 **Impact**:
+
 - Centralized retry and timeout logic.
 - Consistent error shapes.
 - Easier to add tracing/metrics later.
 
 **Validation**:
+
 - Health checks still work after switching to HttpClient.
 - Timeouts respected.
 - HttpError messages logged appropriately.
@@ -92,13 +98,16 @@
 **Goal**: Delegate health checking to the HealthChecker service, removing inline fetch logic.
 
 **Changes**:
+
 - Inject `HealthChecker` into `ServerManager` via DI.
 - Replace `ServerManager.healthCheck()` body with:
+
   ```typescript
   const healthy = await this.healthChecker.check(server);
   server.updateHealth(healthy);
   return healthy;
   ```
+
 - Optionally, HealthChecker can return an error message on failure; we can pass to `updateHealth(healthy, message)`.
 - The `HealthChecker` already uses `HttpClient` internally; we could either:
   - Option A: Let HealthChecker create its own HttpClient (simple) — but then DI duplication.
@@ -107,10 +116,12 @@
 - Optionally, `ServerManager` could also read health interval and schedule periodic checks, but that's a later enhancement.
 
 **Impact**:
+
 - Health logic centralized.
 - Easier to adjust health check parameters without touching ServerManager.
 
 **Validation**:
+
 - Health endpoint (`/servers/:id/health`) returns same results.
 - Consecutive failures still update domain health state.
 
@@ -121,6 +132,7 @@
 **Goal**: Cache parsed configuration to reduce file I/O during hot reload.
 
 **Changes**:
+
 - In `config_loader.ts`:
   - Import `ConfigCache` and create a module-level instance: `const configCache = new ConfigCache<ValidatedConfig>(1000); // 1s TTL`
   - `loadConfig(path)`:
@@ -132,10 +144,12 @@
   - Optionally, allow cache TTL to be configurable via environment or config, but default 1s is fine.
 
 **Impact**:
+
 - Prevents redundant reads/parsing if `watchConfig` fires multiple times quickly (common on some editors).
 - No API change.
 
 **Validation**:
+
 - Rapid config edits (touch file multiple times quickly) result in only one read/parse per TTL window.
 - Logs (if debug) show cache hit/miss.
 
@@ -146,11 +160,13 @@
 **Goal**: `waitForServer` should use HttpClient with appropriate timeout and retry behavior.
 
 **Changes** (covered in Task 2):
+
 - In `ServerManager.waitForServer`, replace `fetch` with `this.httpClient.post(...)`.
 - Set timeout to maybe 30s (same as before) with retries=0 (we want to know when it's ready).
 - Keep polling behavior (loop with 500ms delay) but use HttpClient for each attempt.
 
 **Edge**: HttpClient throws on non-2xx; MCP server may return 400 during init. We should consider 400 as "ready"? Current logic accepts 200 or 400. We'll keep that by checking `response.ok || response.status === 400`. But HttpClient throws on non-ok; we might need to allow 400 without throw. So we could use `httpClient.request` with custom `validateStatus` option, or simply catch HttpError and treat 400 as non-exception. Simpler: create a method `httpClient.postAllowStatus(..., allowedStatuses=[200,400])`. But to keep scope small, we'll wrap:
+
 ```typescript
 try {
   const response = await this.httpClient.post(url, body, { timeout });
@@ -162,11 +178,13 @@ try {
   throw err;
 }
 ```
+
 Actually we want to treat any response (even 500?) as server being "up" but not ready. The current logic only cares about getting a response (not 404/connection refused). So we can adjust: treat any response as ready, but only 200/400 as successful MCP initialize. But for readiness, any HTTP response indicates server is up. We'll keep original: check `response.ok || response.status === 400` as condition to return. So we need to capture the response even if not ok. So we need a fetch variant that doesn't throw on non-2xx. We can use `httpClient.get` with `validateStatus: (status) => status < 600` to always return Response. Simpler: we can use a raw fetch for this one spot because it's a tight loop and we want minimal overhead. But to be consistent, let's extend HttpClient with a `requestNoThrow` or allow callback. Alternatively, accept that HttpClient throws on non-2xx and interpret 400 as "ready but bad request" and return true; for other errors throw and continue loop. That works: treat 400 as success, any other HttpError as not ready. We'll adjust accordingly.
 
 Given scope, it's okay to keep `waitForServer` using raw fetch for now? No, we want HttpClient everywhere. Let's adjust: We'll catch HttpError, and if status is 400, consider ready; else continue.
 
 Implementation:
+
 ```typescript
 try {
   const response = await this.httpClient.post(`http://localhost:${port}/mcp`, body, { timeout });
@@ -176,9 +194,11 @@ try {
   // else continue
 }
 ```
+
 But wait: if HttpClient throws on 400, we never get a Response. So we need HttpClient to not throw on 400. We could add an option `throwOnStatus: (status) => boolean` default `status >= 400`. That's a bit larger change. Alternative: Use HttpClient for the happy path and raw fetch for this one? That's inconsistent.
 
 Given the limited time and that this is internal readiness check, I'm leaning towards:
+
 - Keep raw fetch in `waitForServer` (it's a simple loop, no retries needed).
 - Use HttpClient for all *external* HTTP calls that need reliability (health checks, server info).
 - In future, we could refactor HttpClient to be more flexible, but not needed now.
