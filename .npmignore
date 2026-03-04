@@ -1,30 +1,26 @@
-# Source code
-src/
-docs/
-*.ts
-tsconfig.json
+# Exclude everything by default
+*
 
-# Development
-.git/
-.gitignore
-.env*
-*.md
-AGENT.md
+# But include these files
+!package.json
+!README.md
+!LICENSE
+!dist/
+!config.example.yaml
+!docs/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-.vscode/
+# Include TypeScript definitions if any
+# !*.d.ts
 
-# Logs
-*.log
+# Keep directory structure for included files
+!dist/**
+!docs/**
 
-# Test
-test/
-coverage/
-.nyc_output/
+# Exclude config that should not be shipped
+!config.example.yaml
 
-# Temp
-tmp/
-temp/
+# Keep license
+!LICENSE
+
+# Allow .npmrc if needed
+# !.npmrc

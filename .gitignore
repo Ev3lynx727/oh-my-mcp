@@ -1,34 +1,49 @@
 # Dependencies
 node_modules/
-
-# Build output
-dist/
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Logs
-*.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# IDE
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE and OS
 .idea/
 .vscode/
 *.swp
-*.swo
-*~
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Test
-coverage/
-.nyc_output/
+# Logs
+logs/
+*.log
 
-# Temp
-tmp/
+# Coverage
+coverage/
+.nyc_output
+
+# Cache
+.cache/
+.turbo/
+
+# Test artifacts
+test/fixtures/
 temp/
-*.tmp
+tmp/
+
+# Local config overrides
+config.local.yaml
+config.*.yaml
+
+# Misc
+.cert/
+key.pem
+cert.pem
