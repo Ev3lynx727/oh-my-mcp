@@ -45,6 +45,22 @@ The app starts:
 
 ---
 
+## 📚 Documentation
+
+Comprehensive guides for advanced usage, deployment, and integration:
+
+| Guide | Purpose |
+|-------|---------|
+| **[USAGE.md](USAGE.md)** | Detailed usage examples, API reference, Docker, Kubernetes, OpenClaw, CI/CD |
+| **[SETUP.md](docs/SETUP.md)** | Installation, configuration, security best practices |
+| **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** | Docker, Kubernetes, systemd, production hosting |
+| **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System design, modules, extension points |
+| **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** | How to contribute, code style, testing |
+
+Start with **USAGE.md** for practical patterns.
+
+---
+
 ## Configuration
 
 `config.yaml`:
