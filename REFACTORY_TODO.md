@@ -287,6 +287,11 @@
   - [ ] Configuration examples for each transport type
   - [ ] Deployment considerations
 
+- [x] **P5-X: Observability Guide** (1 day) ✅ **COMPLETE** (early)
+  - [x] Created `docs/observation.md`
+  - [x] Documents metrics, logging, audit, rate limiting, compression, timeouts, troubleshooting
+  - [x] Includes Prometheus integration details and best practices
+
 - [ ] **P5-2: Deployment Guides** (1 day)
   - [ ] `docs/deployment-docker.md` - Dockerfile, docker-compose
   - [ ] `docs/deployment-k8s.md` - K8s manifests (deployment, service, configmap, hpa)
