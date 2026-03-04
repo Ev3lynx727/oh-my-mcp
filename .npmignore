@@ -1,0 +1,30 @@
+# Source code
+src/
+docs/
+*.ts
+tsconfig.json
+
+# Development
+.git/
+.gitignore
+.env*
+*.md
+AGENT.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+.vscode/
+
+# Logs
+*.log
+
+# Test
+test/
+coverage/
+.nyc_output/
+
+# Temp
+tmp/
+temp/

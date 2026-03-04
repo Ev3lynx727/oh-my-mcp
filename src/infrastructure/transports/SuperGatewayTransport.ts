@@ -1,0 +1,99 @@
+import { getLogger } from "../../logger.js";
+import { MCPServer } from "../../domain/Server.js";
+import { HttpClient } from "../../infrastructure/http/HttpClient.js";
+import { ServerTransport } from "../../domain/Transport.js";
+
+const logger = getLogger();
+
+/**
+ * SuperGatewayTransport communicates with an MCP server via HTTP.
+ *
+ * Assumes the server is already running (started by ProcessManager) and listening on a port.
+ * Uses supergateway's streamableHttp endpoint at `http://localhost:${port}/mcp`.
+ */
+export class SuperGatewayTransport implements ServerTransport {
+  constructor(private httpClient: HttpClient) {}
+
+  async isReady(server: MCPServer, timeoutMs?: number): Promise<boolean> {
+    const port = server.getPort();
+    if (!port) {
+      return false;
+    }
+
+    const timeout = timeoutMs || 30000;
+    const start = Date.now();
+    const body = { jsonrpc: "2.0", id: 1, method: "initialize", params: {} };
+
+    while (Date.now() - start < timeout) {
+      try {
+        const response = await this.httpClient.post(`http://localhost:${port}/mcp`, body, { timeout: 5000 });
+        if (response.ok || response.status === 400) {
+          return true;
+        }
+      } catch (err) {
+        // continue polling
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    return false;
+  }
+
+  async healthCheck(server: MCPServer): Promise<boolean> {
+    const port = server.getPort();
+    if (!port) {
+      return false;
+    }
+
+    try {
+      const response = await this.httpClient.post(
+        `http://localhost:${port}/mcp`,
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/list",
+          params: {},
+        },
+        {
+          timeout: server.getTimeout(),
+        }
+      );
+      return response.ok;
+    } catch (err) {
+      logger.debug(
+        { server: server.id, err: err instanceof Error ? err.message : String(err) },
+        "Health check failed"
+      );
+      return false;
+    }
+  }
+
+  async sendRequest(server: MCPServer, request: any): Promise<any> {
+    const port = server.getPort();
+    if (!port) {
+      throw new Error(`Server ${server.id} has no port assigned`);
+    }
+
+    const response = await this.httpClient.post(`http://localhost:${port}/mcp`, request, {
+      timeout: server.getTimeout(),
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+
+    return response.json();
+  }
+
+  getEndpoint(server: MCPServer): string {
+    const port = server.getPort();
+    if (!port) {
+      throw new Error(`Server ${server.id} has no port assigned`);
+    }
+    return `http://localhost:${port}/mcp`;
+  }
+
+  usesPort(): boolean {
+    return true;
+  }
+}

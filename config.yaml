@@ -1,0 +1,16 @@
+managementPort: 8080
+gatewayPort: 8090
+logLevel: debug
+
+auth:
+  tokens:
+    - "test-token"
+
+servers:
+  memory:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-memory"
+    timeout: 30000
+    enabled: true

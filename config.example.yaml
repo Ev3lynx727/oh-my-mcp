@@ -1,0 +1,233 @@
+# oh-my-mcp configuration
+# Copy this file to config.yaml and customize
+
+managementPort: 8080
+gatewayPort: 8090
+logLevel: info
+
+auth:
+  tokens:
+    - "zn5azlpglew393uh57mj70ez6b7cmgft0251nxm6pxs7y02f1y"  # Your existing token
+
+servers:
+  # Example: custom transport and health check settings
+  # example:
+  #   command:
+  #     - "npx"
+  #     - "-y"
+  #     - "@modelcontextprotocol/server-example"
+  #   transport: "supergateway"   # or "stdio" (experimental)
+  #   healthCheck:
+  #     interval: 10000           # check every 10s
+  #     timeout: 3000            # health check timeout 3s
+  #     unhealthyThreshold: 5    # mark error after 5 consecutive failures
+  #   timeout: 60000            # request timeout per MCP call
+  #   enabled: false
+
+  github:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-github"
+    env:
+      GITHUB_PERSONAL_ACCESS_TOKEN: "{env:GITHUB_TOKEN}"
+    timeout: 60000
+    enabled: true
+
+  mgrep:
+    command:
+      - "mgrep"
+      - "mcp"
+    timeout: 60000
+    enabled: true
+
+  mcp_everything:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-everything"
+    timeout: 60000
+    enabled: true
+
+  shellcheck:
+    command:
+      - "uvx"
+      - "--from"
+      - "https://github.com/Ev3lynx727/mcp-shellcheck/releases/download/v0.1.2/mcp_shellcheck-0.1.2-py3-none-any.whl"
+      - "shellcheck-mcp-server"
+    timeout: 60000
+    enabled: true
+
+  ripgrep:
+    command:
+      - "npx"
+      - "-y"
+      - "mcp-ripgrep@latest"
+    timeout: 60000
+    enabled: true
+
+  filesystem:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "/home/ev3lynx"
+    timeout: 60000
+    enabled: true
+
+  memory:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-memory"
+    timeout: 60000
+    enabled: true
+
+  fetch:
+    command:
+      - "uvx"
+      - "mcp-server-fetch"
+    timeout: 60000
+    enabled: true
+
+  sequential-thinking:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-sequential-thinking"
+    timeout: 120000
+    enabled: true
+
+  # Remote servers (these connect to external endpoints)
+  # context7:
+  #   type: remote
+  #   url: https://mcp.context7.com/mcp
+  #   headers:
+  #     CONTEXT7_API_KEY: "{env:CONTEXT7_API_KEY}"
+
+  ruff:
+    command:
+      - "uvx"
+      - "--from"
+      - "/home/ev3lynx/Project/local-mcp-server/mcp-ruff"
+      - "ruff-mcp-server"
+    timeout: 60000
+    enabled: true
+
+  markdownlint:
+    command:
+      - "uvx"
+      - "--from"
+      - "/home/ev3lynx/Project/local-mcp-server/mcp-markdownlint"
+      - "markdownlint-mcp-server"
+    timeout: 60000
+    enabled: true
+
+  git:
+    command:
+      - "uvx"
+      - "mcp-server-git"
+      - "--repository"
+      - "/home/ev3lynx/Project"
+    timeout: 60000
+    enabled: true
+
+  formatter:
+    command:
+      - "npx"
+      - "-y"
+      - "editorconfig-mcp-server"
+    timeout: 60000
+    enabled: true
+
+  playwright:
+    command:
+      - "npx"
+      - "-y"
+      - "@playwright/mcp"
+    timeout: 60000
+    enabled: true
+
+  fabric:
+    command:
+      - "fabric-mcp"
+      - "--transport"
+      - "stdio"
+    env:
+      FABRIC_BASE_URL: "http://127.0.0.1:8080"
+    timeout: 60000
+    enabled: true
+
+  server-commands:
+    command:
+      - "npx"
+      - "-y"
+      - "mcp-server-commands"
+    timeout: 60000
+    enabled: true
+
+  codeguardian:
+    command:
+      - "npx"
+      - "-y"
+      - "codeguardian-mcp"
+    timeout: 120000
+    enabled: true
+
+  deployment-agent-native:
+    command:
+      - "npx"
+      - "-y"
+      - "mcp-deployment-agent"
+    timeout: 120000
+    enabled: true
+
+  local-server-brain:
+    command:
+      - "node"
+      - "/home/ev3lynx/Project/local-server-brain/build/index.js"
+    env:
+      BRAIN_DATA_DIR: "/home/ev3lynx/server-brain"
+    timeout: 120000
+    enabled: true
+
+  cleancode:
+    command:
+      - "npx"
+      - "-y"
+      - "mcp-clean-code"
+    timeout: 60000
+    enabled: true
+
+  code-reasoning:
+    command:
+      - "npx"
+      - "-y"
+      - "@mettamatt/code-reasoning"
+    timeout: 60000
+    enabled: true
+
+  jq:
+    command:
+      - "npx"
+      - "-y"
+      - "mcp-jq"
+    timeout: 60000
+    enabled: true
+
+  bun:
+    command:
+      - "npx"
+      - "-y"
+      - "mcp-bun"
+    timeout: 60000
+    enabled: true
+
+  gitingest:
+    command:
+      - "uvx"
+      - "--from"
+      - "/home/ev3lynx/Project/local-mcp-server/mcp-gitingest/dist/mcp_gitingest-0.1.0-py3-none-any.whl"
+      - "mcp-gitingest"
+    timeout: 60000
+    enabled: true
