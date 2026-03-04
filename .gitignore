@@ -47,7 +47,5 @@ config.*.yaml
 .cert/
 key.pem
 cert.pem
-REFACTORING_PLAN.md
-REFACTORY_TODO.md
-REPORTS.md
-CORE.md
+.summary/
+.codeguardian/
