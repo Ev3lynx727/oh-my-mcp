@@ -9,6 +9,8 @@ import { createManagementAPI } from "./api.js";
 import { createGatewayAPI } from "./gateway.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { metricsMiddleware, metricsErrorMiddleware, metricsHandler } from "./infrastructure/metrics/middleware.js";
+import { getMetrics } from "./infrastructure/metrics/metrics.js";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -66,6 +68,22 @@ async function main() {
   const managementApp = express();
   managementApp.set("logger", logger);
   managementApp.use(requestIdMiddleware);
+  // Metrics instrumentation (no auth required for /metrics)
+  managementApp.use(metricsMiddleware);
+  managementApp.get('/metrics', async (req, res) => {
+    const metrics = getMetrics();
+    // Update server count gauges
+    metrics.updateServerCounts(manager.getAllServers());
+    try {
+      const content = await metrics.metrics();
+      res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+      res.send(content);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to generate metrics', details: err.message });
+    }
+  });
+  managementApp.use(metricsErrorMiddleware);
+  // Auth and API
   managementApp.use(createAuthMiddleware(config.auth));
   managementApp.use(createManagementAPI(manager));
   managementApp.use(errorHandler);
@@ -74,6 +92,19 @@ async function main() {
   const gatewayApp = express();
   gatewayApp.set("logger", logger);
   gatewayApp.use(requestIdMiddleware);
+  gatewayApp.use(metricsMiddleware);
+  gatewayApp.get('/metrics', async (req, res) => {
+    const metrics = getMetrics();
+    metrics.updateServerCounts(manager.getAllServers());
+    try {
+      const content = await metrics.metrics();
+      res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+      res.send(content);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to generate metrics', details: err.message });
+    }
+  });
+  gatewayApp.use(metricsErrorMiddleware);
   gatewayApp.use(createAuthMiddleware(config.auth));
   gatewayApp.use(createGatewayAPI(manager));
   gatewayApp.use(errorHandler);

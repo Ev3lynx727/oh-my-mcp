@@ -218,12 +218,14 @@
 
 ### Week 9: Observability & Reliability
 
-- [ ] **P4-9: Prometheus Metrics** (1 day)
-  - [ ] Create `src/infrastructure/metrics/metrics.ts`
-  - [ ] Use `prom-client` or custom
-  - [ ] `/metrics` endpoint (text exposition)
-  - [ ] Metrics: server count, uptime, request latency, errors
-  - [ ] Document metrics
+- [x] **P4-9: Prometheus Metrics** (1 day) ✅ **COMPLETE**
+  - [x] Create `src/infrastructure/metrics/metrics.ts` with `AppMetrics` singleton
+  - [x] Use `prom-client` library (installed)
+  - [x] Expose `/metrics` on both management and gateway apps (no auth)
+  - [x] Metrics: server count by status (gauge), request total counter, request duration histogram, errors counter, default process metrics (uptime, CPU, memory)
+  - [x] Instrumentation: `metricsMiddleware` (record requests/duration), `metricsErrorMiddleware` (record errors)
+  - [x] Server counts computed on-demand from ServerManager
+  - [x] Documented in API reference (metrics endpoint)
 
 - [ ] **P4-10: Response Compression** (3 hours)
   - [ ] Add `compression()` middleware in `src/index.ts`
