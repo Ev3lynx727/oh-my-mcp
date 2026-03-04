@@ -13,13 +13,30 @@ import { metricsMiddleware, metricsErrorMiddleware, metricsHandler } from "./inf
 import { getMetrics } from "./infrastructure/metrics/metrics.js";
 import compression from "compression";
 import { timeoutMiddleware } from "./middleware/timeout.js";
+import { rateLimit } from "./middleware/rate-limit.js";
+import { auditMiddleware } from "./middleware/audit.js";
+import { requestResponseLogging } from "./middleware/logging.js";
 
 async function main() {
   const args = process.argv.slice(2);
   const configPath = args[0] || "./config.yaml";
 
   console.log(`Loading config from: ${configPath}`);
-  const config = await loadConfig(configPath);
+
+  // Load and validate config with error handling
+  let config;
+  try {
+    config = await loadConfig(configPath);
+  } catch (err) {
+    // Initialize minimal logger to report config error
+    initLogger('error');
+    const tempLogger = getLogger();
+    tempLogger.error({
+      error: err instanceof Error ? err.message : String(err),
+      configPath,
+    }, "Configuration validation failed");
+    process.exit(1);
+  }
 
   initLogger(config.logLevel || "info");
   const logger = getLogger();
@@ -42,12 +59,8 @@ async function main() {
   app.use(express.json());
   app.set("logger", logger);
   app.use(requestIdMiddleware);
-  // Simple request log (debug)
-  app.use((req, res, next) => {
-    const reqLog = (req as any).log || logger;
-    reqLog.debug({ method: req.method, path: req.path }, "Incoming request");
-    next();
-  });
+  // Request/Response logging
+  app.use(requestResponseLogging);
 
   app.get("/health", (req, res) => {
     res.json({ status: "ok", servers: manager.getAllServers().length });
@@ -70,6 +83,8 @@ async function main() {
   const managementApp = express();
   managementApp.set("logger", logger);
   managementApp.use(requestIdMiddleware);
+  // Request/Response logging
+  managementApp.use(requestResponseLogging);
   // Global request timeout for management API (2 minutes)
   managementApp.use(timeoutMiddleware(120000));
   // Enable compression in prod (disable in dev)
@@ -93,6 +108,14 @@ async function main() {
   managementApp.use(metricsErrorMiddleware);
   // Auth and API
   managementApp.use(createAuthMiddleware(config.auth));
+  // Rate limiting: 100 req/min per IP on management API
+  managementApp.use(rateLimit({
+    windowMs: 60_000,
+    max: 100,
+    keyGenerator: (req) => req.ip || 'unknown',
+  }));
+  // Audit logging for state-changing operations
+  managementApp.use(auditMiddleware);
   managementApp.use(createManagementAPI(manager));
   managementApp.use(errorHandler);
 
@@ -100,6 +123,8 @@ async function main() {
   const gatewayApp = express();
   gatewayApp.set("logger", logger);
   gatewayApp.use(requestIdMiddleware);
+  // Request/Response logging
+  gatewayApp.use(requestResponseLogging);
   // Global request timeout for gateway API (60 seconds)
   gatewayApp.use(timeoutMiddleware(60000));
   if (process.env.NODE_ENV !== 'development' && config.compression !== false) {
@@ -119,6 +144,19 @@ async function main() {
   });
   gatewayApp.use(metricsErrorMiddleware);
   gatewayApp.use(createAuthMiddleware(config.auth));
+  // Rate limiting: 1000 req/min per token on gateway API
+  gatewayApp.use(rateLimit({
+    windowMs: 60_000,
+    max: 1000,
+    keyGenerator: (req) => {
+      const auth = req.headers.authorization;
+      if (auth && auth.startsWith('Bearer ')) {
+        return auth.slice(7);
+      }
+      // Fallback to IP if no token (should not occur when auth enabled)
+      return req.ip || 'unknown';
+    },
+  }));
   gatewayApp.use(createGatewayAPI(manager));
   gatewayApp.use(errorHandler);
 
