@@ -11,6 +11,8 @@ import { requestIdMiddleware } from "./middleware/request-id.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { metricsMiddleware, metricsErrorMiddleware, metricsHandler } from "./infrastructure/metrics/middleware.js";
 import { getMetrics } from "./infrastructure/metrics/metrics.js";
+import compression from "compression";
+import { timeoutMiddleware } from "./middleware/timeout.js";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -68,6 +70,12 @@ async function main() {
   const managementApp = express();
   managementApp.set("logger", logger);
   managementApp.use(requestIdMiddleware);
+  // Global request timeout for management API (2 minutes)
+  managementApp.use(timeoutMiddleware(120000));
+  // Enable compression in prod (disable in dev)
+  if (process.env.NODE_ENV !== 'development' && config.compression !== false) {
+    managementApp.use(compression({ threshold: 1024 })); // 1KB
+  }
   // Metrics instrumentation (no auth required for /metrics)
   managementApp.use(metricsMiddleware);
   managementApp.get('/metrics', async (req, res) => {
@@ -92,6 +100,11 @@ async function main() {
   const gatewayApp = express();
   gatewayApp.set("logger", logger);
   gatewayApp.use(requestIdMiddleware);
+  // Global request timeout for gateway API (60 seconds)
+  gatewayApp.use(timeoutMiddleware(60000));
+  if (process.env.NODE_ENV !== 'development' && config.compression !== false) {
+    gatewayApp.use(compression({ threshold: 1024 })); // 1KB
+  }
   gatewayApp.use(metricsMiddleware);
   gatewayApp.get('/metrics', async (req, res) => {
     const metrics = getMetrics();

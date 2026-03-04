@@ -27,6 +27,7 @@ export const ConfigSchema = z.object({
   managementPort: z.number().optional().default(8080),
   gatewayPort: z.number().optional().default(8090),
   logLevel: z.enum(["debug", "info", "warn", "error"]).optional().default("info"),
+  compression: z.boolean().optional().default(true),
 });
 
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
