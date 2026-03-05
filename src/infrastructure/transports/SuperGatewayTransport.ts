@@ -1,6 +1,6 @@
 import { getLogger } from "../../logger.js";
 import { MCPServer } from "../../domain/Server.js";
-import { HttpClient } from "../../infrastructure/http/HttpClient.js";
+import { HttpClient, HttpError } from "../../infrastructure/http/HttpClient.js";
 import { ServerTransport } from "../../domain/Transport.js";
 
 const logger = getLogger();
@@ -27,10 +27,13 @@ export class SuperGatewayTransport implements ServerTransport {
     while (Date.now() - start < timeout) {
       try {
         const response = await this.httpClient.post(`http://localhost:${port}/mcp`, body, { timeout: 5000 });
-        if (response.ok || response.status === 400) {
+        if (response.ok || response.status === 400 || response.status === 406) {
           return true;
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err instanceof HttpError && (err.status === 400 || err.status === 406)) {
+          return true;
+        }
         // continue polling
       }
       await new Promise((r) => setTimeout(r, 500));
@@ -58,7 +61,10 @@ export class SuperGatewayTransport implements ServerTransport {
         }
       );
       return response.ok;
-    } catch (err) {
+    } catch (err: any) {
+        if (err instanceof HttpError && (err.status === 400 || err.status === 406)) {
+          return true;
+        }
       logger.debug(
         { server: server.id, err: err instanceof Error ? err.message : String(err) },
         "Health check failed"

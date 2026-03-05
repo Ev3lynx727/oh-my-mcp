@@ -163,7 +163,7 @@ export class ServerManager {
       server.setAllocatedPort(port);
 
       // Wait for server to be ready using transport
-      await this.waitForServer(id, transport);
+      await this.waitForServer(id, transport, domainConfig.timeout);
 
       server.markRunning(port, child);
       this.eventBus.emit("serverStarted", id);

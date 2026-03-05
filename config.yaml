@@ -12,5 +12,5 @@ servers:
       - "npx"
       - "-y"
       - "@modelcontextprotocol/server-memory"
-    timeout: 30000
+    timeout: 120000
     enabled: true
