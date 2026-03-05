@@ -14,3 +14,29 @@ servers:
       - "@modelcontextprotocol/server-memory"
     timeout: 120000
     enabled: true
+  
+  filesystem:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "/tmp"
+    timeout: 120000
+    enabled: true
+  
+  sqlite:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-sqlite"
+      - "/tmp/test.db"
+    timeout: 120000
+    enabled: true
+  
+  web-search:
+    command:
+      - "npx"
+      - "-y"
+      - "@modelcontextprotocol/server-web-search"
+    timeout: 120000
+    enabled: true

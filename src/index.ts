@@ -122,6 +122,7 @@ async function main() {
   // Gateway API app
   const gatewayApp = express();
   gatewayApp.set("logger", logger);
+  gatewayApp.use(express.json());
   gatewayApp.use(requestIdMiddleware);
   // Request/Response logging
   gatewayApp.use(requestResponseLogging);
