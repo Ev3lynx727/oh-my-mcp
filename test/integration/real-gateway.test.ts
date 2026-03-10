@@ -62,8 +62,12 @@ servers:
       env: { ...process.env, NODE_ENV: 'test' },
     });
 
-    // Wait for the health endpoint to be ready
-    await waitForURL(`http://localhost:${managementPort}/health`, 120000);
+    // Wait for the server to be running (not just health API to be up)
+    await waitForURL(
+      `http://localhost:${managementPort}/servers`,
+      120000,
+      (json) => json.servers?.some((s: any) => s.id === 'everything' && s.status === 'running')
+    );
   });
 
   afterAll(() => {
@@ -79,7 +83,7 @@ servers:
     }
 
     // Cleanup config directory
-    rm(configDir, { recursive: true, force: true }).catch(() => {});
+    rm(configDir, { recursive: true, force: true }).catch(() => { });
   });
 
   it('should report health with servers count', async () => {
@@ -107,13 +111,19 @@ servers:
       method: 'tools/list',
       params: {},
     };
-    const res = await fetch(`http://localhost:${gatewayPort}/mcp`, {
+    const res = await fetch(`http://localhost:${gatewayPort}/mcp/everything`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+      },
       body: JSON.stringify(body),
     });
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const rawText = await res.text();
+    console.log('RAW TEXT RESPONSE 1:', rawText);
+    const dataLine = rawText.split('\n').find(l => l.startsWith('data: '));
+    const data = JSON.parse(dataLine!.slice(6));
     expect(data.jsonrpc).toBe('2.0');
     expect(data.id).toBe(1);
     expect(data).toHaveProperty('result');
@@ -132,14 +142,20 @@ servers:
         clientInfo: { name: 'test', version: '1.0.0' },
       },
     };
-    const res = await fetch(`http://localhost:${gatewayPort}/mcp`, {
+    const res = await fetch(`http://localhost:${gatewayPort}/mcp/everything`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream',
+      },
       body: JSON.stringify(body),
     });
     // initialize may return 200 or 400 (depending on server), both acceptable
     expect(res.ok || res.status === 400).toBe(true);
-    const data = await res.json();
+    const rawText = await res.text();
+    console.log('RAW TEXT RESPONSE 2:', rawText);
+    const dataLine = rawText.split('\n').find(l => l.startsWith('data: '));
+    const data = JSON.parse(dataLine!.slice(6));
     expect(data.jsonrpc).toBe('2.0');
     expect(data.id).toBe(2);
     expect(data).toHaveProperty('result');

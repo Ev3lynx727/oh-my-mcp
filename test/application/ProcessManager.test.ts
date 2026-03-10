@@ -31,6 +31,7 @@ describe('ProcessManager', () => {
     env: {},
     timeout: 60000,
     enabled: true,
+    transport: 'stdio',
     ...overrides,
   });
 
@@ -42,18 +43,18 @@ describe('ProcessManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSpawn.mockReturnValue(mockChildProcess as any);
+    (mockSpawn as any).mockReturnValue(mockChildProcess as any);
     pm = new ProcessManager();
   });
 
   afterEach(() => {
-    pm.stopAll().catch(() => {});
+    pm.stopAll().catch(() => { });
   });
 
   it('should start a server process', async () => {
     const server = makeServer('s1', 8100);
     const config = makeLegacyConfig();
-    await pm.startServer(server, config, 8100);
+    await pm.startServer(server, config as any, 8100);
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'npx',
@@ -70,7 +71,7 @@ describe('ProcessManager', () => {
       expect.objectContaining({
         env: expect.objectContaining({}),
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true,
+        windowsHide: true,
       })
     );
     expect(pm.isRunning('s1')).toBe(true);

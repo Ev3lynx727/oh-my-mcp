@@ -25,7 +25,7 @@ describe('SuperGatewayTransport', () => {
 
   it('getEndpoint returns URL with port', () => {
     const url = transport.getEndpoint(makeServer(8100));
-    expect(url).toBe('http://localhost:8100/mcp');
+    expect(url).toBe('http://127.0.0.1:8100/mcp');
   });
 
   it('usesPort returns true', () => {
@@ -34,7 +34,7 @@ describe('SuperGatewayTransport', () => {
 
   it('isReady polls until initialize succeeds (200 or 400)', async () => {
     // First call throws, second succeeds with 400
-    mockPost.mockRejectedValue(new Error('conn refused'));
+    mockPost.mockRejectedValueOnce(new Error('conn refused'));
     mockPost.mockResolvedValueOnce({ ok: true, status: 400, json: async () => ({}) });
 
     const ready = await transport.isReady(makeServer(1234), 5000);
@@ -53,7 +53,7 @@ describe('SuperGatewayTransport', () => {
     const healthy = await transport.healthCheck(makeServer(1234));
     expect(healthy).toBe(true);
     expect(mockPost).toHaveBeenCalledWith(
-      'http://localhost:1234/mcp',
+      'http://127.0.0.1:1234/mcp',
       expect.objectContaining({
         jsonrpc: '2.0',
         id: 2,
@@ -76,34 +76,34 @@ describe('SuperGatewayTransport', () => {
     expect(healthy).toBe(false);
   });
 
-  it('healthCheck returns false if server has no port', () => {
-    const badServer = { getPort: () => 0, getTimeout: () => 60000 } as any;
+  it('healthCheck returns false if server has no port', async () => {
+    const badServer = { getPort: () => 0, getTimeout: () => 60000, id: 'test' } as any;
     // Synchronous check in transport: returns false without calling HttpClient
     // Actually isReady checks port; healthCheck also checks port; it will return false immediately.
-    const healthy = transport.healthCheck(badServer);
+    const healthy = await transport.healthCheck(badServer);
     expect(healthy).toBe(false);
     expect(mockPost).not.toHaveBeenCalled();
   });
 
   it('sendRequest returns parsed JSON on ok', async () => {
     const responseData = { jsonrpc: '2.0', result: {} };
-    mockPost.mockResolvedValue({ ok: true, status: 200, json: async () => responseData });
+    mockPost.mockResolvedValue({ ok: true, status: 200, text: async () => `event: message\\ndata: ${JSON.stringify(responseData)}\\n\\n` });
     const server = makeServer(1234);
     const req = { jsonrpc: '2.0', id: 1, method: 'test', params: {} };
     const result = await transport.sendRequest(server, req);
     expect(result).toEqual(responseData);
-    expect(mockPost).toHaveBeenCalledWith('http://localhost:1234/mcp', req, { timeout: 60000 });
+    expect(mockPost).toHaveBeenCalledWith('http://127.0.0.1:1234/mcp', req, { timeout: 60000 });
   });
 
   it('sendRequest throws on non-ok with JSON body', async () => {
-    mockPost.mockResolvedValue({ ok: false, status: 502, json: async () => ({ error: 'bad' }) });
+    mockPost.mockResolvedValue({ ok: false, status: 502, text: async () => '{"error":"bad"}', json: async () => ({ error: 'bad' }) });
     const server = makeServer(1234);
     const req = { jsonrpc: '2.0', id: 1, method: 'test', params: {} };
     await expect(transport.sendRequest(server, req)).rejects.toThrow('HTTP 502: {"error":"bad"}');
   });
 
   it('sendRequest throws if server has no port', async () => {
-    const badServer = { getPort: () => 0, getTimeout: () => 60000 } as any;
+    const badServer = { getPort: () => 0, getTimeout: () => 60000, id: 'test' } as any;
     await expect(transport.sendRequest(badServer, {})).rejects.toThrow('Server test has no port assigned');
   });
 });

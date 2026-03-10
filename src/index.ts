@@ -54,19 +54,19 @@ async function main() {
   // Resolve ServerManager from container
   const manager = container.resolve<ServerManager>(ServerManager);
 
-  // Main app (health and root)
-  const app = express();
-  app.use(express.json());
-  app.set("logger", logger);
-  app.use(requestIdMiddleware);
+  // Management API app
+  const managementApp = express();
+  managementApp.set("logger", logger);
+  managementApp.use(express.json());
+  managementApp.use(requestIdMiddleware);
   // Request/Response logging
-  app.use(requestResponseLogging);
+  managementApp.use(requestResponseLogging);
 
-  app.get("/health", (req, res) => {
+  managementApp.get("/health", (req, res) => {
     res.json({ status: "ok", servers: manager.getAllServers().length });
   });
 
-  app.get("/", (req, res) => {
+  managementApp.get("/", (req, res) => {
     res.json({
       name: "oh-my-mcp",
       version: "1.0.0",
@@ -78,13 +78,6 @@ async function main() {
       },
     });
   });
-
-  // Management API app
-  const managementApp = express();
-  managementApp.set("logger", logger);
-  managementApp.use(requestIdMiddleware);
-  // Request/Response logging
-  managementApp.use(requestResponseLogging);
   // Global request timeout for management API (2 minutes)
   managementApp.use(timeoutMiddleware(120000));
   // Enable compression in prod (disable in dev)
@@ -161,8 +154,7 @@ async function main() {
   gatewayApp.use(createGatewayAPI(manager));
   gatewayApp.use(errorHandler);
 
-  // Root app also needs error handler after routes
-  app.use(errorHandler);
+
 
   // Start servers
   managementApp.listen(config.managementPort, () => {

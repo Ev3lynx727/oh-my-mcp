@@ -77,7 +77,7 @@ describe('ServerManager', () => {
   describe('startServer', () => {
     it('should start server and mark running', async () => {
       // Arrange
-      const legacyConfig = makeLegacyConfig();
+      const legacyConfig = makeLegacyConfig({ port: undefined });
       const domainConfig = makeDomainConfig();
       // We need MCPServer.fromRawConfig to be called internally; ServerManager does:
       // let server = existingDomain || MCPServer.fromRawConfig(domainConfig)
@@ -101,6 +101,7 @@ describe('ServerManager', () => {
       // We'll define a simple class or object:
       const mockServer = {
         id: 's1',
+        state: {},
         markStarting: vi.fn(),
         markRunning: vi.fn(),
         markStopping: vi.fn(),
@@ -129,7 +130,7 @@ describe('ServerManager', () => {
       // Also, we need the manager's setupEventBridge method to be harmless. It sets up event listeners. That should be fine.
       // We need to stub processManager.startServer to return a resolved promise and set a fake child process.
       (processManager.startServer as any).mockResolvedValue(undefined);
-      (processManager.getProcess as any).mockReturnValue({ kill: vi.fn() });
+      (processManager.getProcess as any).mockReturnValue({ kill: vi.fn(), stdout: { on: vi.fn() }, stderr: { on: vi.fn() }, on: vi.fn() });
 
       // Transport mock
       const mockTransport = {

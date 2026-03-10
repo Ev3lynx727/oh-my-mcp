@@ -41,10 +41,10 @@ export class ProcessManager {
 
     logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting server process");
 
-    const child = spawn("npx", args, {
+    const child = spawn(process.platform === "win32" ? "npx.cmd" : "npx", args, {
       env: mergedEnv,
       stdio: ["pipe", "pipe", "pipe"],
-      shell: true,
+      windowsHide: true,
     });
 
     this.runningProcesses.set(id, child);
@@ -55,7 +55,7 @@ export class ProcessManager {
 
     child.stderr?.on("data", (data) => {
       const msg = data.toString().trim();
-      logger.debug({ server: id, type: "stderr" }, msg);
+      logger.info({ server: id, type: "stderr" }, msg);
       // Also emit via ServerManager's log event (handled separately)
     });
 

@@ -49,3 +49,8 @@ key.pem
 cert.pem
 .summary/
 .codeguardian/
+
+#ghostclaw
+.ghostclaw/
+.drafts/
+

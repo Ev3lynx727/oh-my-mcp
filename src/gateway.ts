@@ -35,7 +35,7 @@ export function createGatewayAPI(manager: ServerManager) {
 
     const targetPort = server.port;
     const targetPath = "/mcp";
-    
+
     // Filter headers to remove problematic ones
     const forwardHeaders: Record<string, string | string[]> = {};
     for (const [key, value] of Object.entries(req.headers)) {
@@ -44,9 +44,9 @@ export function createGatewayAPI(manager: ServerManager) {
         forwardHeaders[key] = value;
       }
     }
-    
+
     const options = {
-      hostname: "localhost",
+      hostname: "127.0.0.1",
       port: targetPort,
       path: targetPath,
       method: req.method,
@@ -77,12 +77,16 @@ export function createGatewayAPI(manager: ServerManager) {
     const proxyReq = http.request(proxyOptions, (proxyRes) => {
       res.status(proxyRes.statusCode || 500);
       Object.keys(proxyRes.headers).forEach(key => {
+        const lowerKey = key.toLowerCase();
+        if (['transfer-encoding', 'connection', 'keep-alive', 'content-length'].includes(lowerKey)) {
+          return; // Node HTTP handles hop-by-hop headers automatically
+        }
         const value = proxyRes.headers[key];
         if (value !== undefined) {
           res.setHeader(key, value);
         }
       });
-      
+
       // Direct piping with explicit end
       proxyRes.pipe(res, { end: true });
     });
