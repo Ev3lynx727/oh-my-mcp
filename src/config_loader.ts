@@ -1,10 +1,12 @@
-import { readFileSync, existsSync, watchFile } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { parse } from "path";
 import { Config, ConfigSchema } from "./config.js";
 import { getLogger } from "./logger.js";
+import { ConfigWatcher } from "./infrastructure/config/index.js";
 
 let config: Config | null = null;
 let configPath: string;
+let configWatcher: ConfigWatcher | null = null;
 const logger = getLogger();
 
 export async function loadConfig(path: string): Promise<Config> {
@@ -41,20 +43,43 @@ export function getConfig(): Config {
   return config;
 }
 
-export function watchConfig(callback: (config: Config) => void) {
-  if (!configPath) return;
+export async function watchConfig(callback: (config: Config) => void): Promise<void> {
+  if (!configPath) {
+    logger.warn("No config path set, skipping watch");
+    return;
+  }
 
-  watchFile(configPath, { interval: 1000 }, async () => {
-    try {
-      const newConfig = await loadConfig(configPath);
-      callback(newConfig);
-      logger.info("Config hot-reloaded");
-    } catch (err) {
-      logger.error({ err }, "Failed to reload config");
-    }
+  if (configWatcher) {
+    await configWatcher.stop();
+  }
+
+  configWatcher = new ConfigWatcher(configPath, {
+    debounceMs: 500,
+    awaitWriteFinishMs: 300,
+    usePolling: false,
+    ignored: [
+      "*.swp",
+      "*.swo",
+      "*~",
+      ".git/*",
+      "node_modules/*",
+    ],
   });
+
+  await configWatcher.start(async (newConfig) => {
+    callback(newConfig);
+  });
+
+  logger.info({ path: configPath }, "Config hot-reload enabled with chokidar");
 }
 
 export async function reloadConfig(): Promise<Config> {
   return loadConfig(configPath);
+}
+
+export async function shutdownWatcher(): Promise<void> {
+  if (configWatcher) {
+    await configWatcher.stop();
+    configWatcher = null;
+  }
 }

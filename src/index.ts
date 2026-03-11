@@ -1,5 +1,5 @@
 import express from "express";
-import { loadConfig, watchConfig } from "./config_loader.js";
+import { loadConfig, watchConfig, shutdownWatcher } from "./config_loader.js";
 import { initLogger, getLogger } from "./logger.js";
 import { Container } from "./di/container.js";
 import { AppModule } from "./di/modules/app.module.js";
@@ -16,11 +16,25 @@ import { timeoutMiddleware } from "./middleware/timeout.js";
 import { rateLimit } from "./middleware/rate-limit.js";
 import { auditMiddleware } from "./middleware/audit.js";
 import { requestResponseLogging } from "./middleware/logging.js";
+import { parseCliArgs, showHelp, showVersion } from "./cli/schemas.js";
+import { diffServerConfigs, shouldRestartServer, reloadServersWithStrategy, ConfigValidator } from "./infrastructure/config/index.js";
+import { getConfig } from "./config_loader.js";
 
 async function main() {
   const args = process.argv.slice(2);
-  const configPath = args[0] || "./config.yaml";
+  const parsed = parseCliArgs(args);
 
+  if (parsed.help) {
+    showHelp();
+    process.exit(0);
+  }
+
+  if (parsed.version) {
+    showVersion();
+    process.exit(0);
+  }
+
+  const configPath = parsed.configPath;
   console.log(`Loading config from: ${configPath}`);
 
   // Load and validate config with error handling
@@ -175,46 +189,71 @@ async function main() {
     }
   }
 
-  // Hot reload
-  watchConfig(async (newConfig) => {
-    logger.info("Config changed, reloading...");
+  // Config validator for hot reload
+  const configValidator = new ConfigValidator({
+    validateBeforeApply: true,
+    rollbackOnError: true,
+    warnOnMissingServers: true,
+  });
+  configValidator.setLastValidConfig(config);
 
-    const shouldRun = new Set<string>();
-    for (const [id, cfg] of Object.entries(newConfig.servers)) {
-      if (cfg.enabled !== false) shouldRun.add(id);
-    }
+  // Hot reload with smart diff, graceful rolling restart, and validation
+  await watchConfig(async (newConfig) => {
+    // Validate before applying
+    const validationResult = await configValidator.validateAndApply(
+      newConfig,
+      async (validatedConfig) => {
+        const oldConfig = getConfig();
+        const diff = diffServerConfigs(oldConfig, validatedConfig);
 
-    const currentServers = manager.getAllServers();
-    for (const server of currentServers) {
-      const id = server.id;
-      if (!shouldRun.has(id)) {
-        logger.info({ server: id }, "Stopping server removed or disabled in new config");
-        try {
-          await manager.stopServer(id);
-        } catch (err: any) {
-          logger.error({ server: id, error: err.message }, "Failed to stop server during config reload");
+        logger.info(
+          { added: diff.added, removed: diff.removed, modified: diff.modified },
+          "Config changed, calculating diff..."
+        );
+
+        const toRestart = diff.modified.filter((id) => shouldRestartServer(diff, id));
+        const noRestart = diff.modified.filter((id) => !shouldRestartServer(diff, id));
+
+        for (const id of noRestart) {
+          logger.info({ server: id, changes: diff.details[id] }, "Server config updated (no restart needed)");
         }
-      }
-    }
 
-    for (const [id, serverConfig] of Object.entries(newConfig.servers)) {
-      if (serverConfig.enabled !== false) {
-        const existing = manager.getServer(id);
-        const isRunning = existing && (existing.status === 'running' || existing.status === 'starting');
-        if (!isRunning) {
-          try {
-            await manager.startServer(id, serverConfig);
-          } catch (err: any) {
-            logger.error({ server: id, error: err.message }, "Failed to start server from config reload");
+        const result = await reloadServersWithStrategy(
+          manager,
+          validatedConfig,
+          diff.added,
+          diff.removed,
+          toRestart,
+          {
+            strategy: "graceful",
+            staggerDelay: 1000,
+            maxConcurrent: 2,
           }
-        }
+        );
+
+        logger.info(
+          { stopped: result.stopped, started: result.started, restarted: result.restarted, failed: result.failed, duration: result.duration },
+          "Config reload complete"
+        );
       }
+    );
+
+    if (!configValidator.getLastValidConfig()) {
+      configValidator.setLastValidConfig(config);
+    }
+
+    if (!validationResult.success) {
+      logger.error({ error: validationResult.error, usedFallback: validationResult.usedFallback }, "Config reload failed");
     }
   });
 
   // Graceful shutdown with timeout
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "Received termination signal, shutting down...");
+    
+    // Stop config watcher first
+    await shutdownWatcher();
+    
     const timeoutMs = 10000;
     const stopPromise = manager.stopAll();
     const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, timeoutMs));

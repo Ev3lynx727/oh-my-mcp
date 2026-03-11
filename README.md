@@ -117,6 +117,7 @@ See `config.example.yaml` for all options.
 `POST /mcp` proxies any JSON-RPC request to the selected backend.
 
 **Headers**:
+
 - `Server-Id` (optional): which server to route to (default: first enabled)
 - `Authorization: Bearer <token>` (if auth enabled)
 

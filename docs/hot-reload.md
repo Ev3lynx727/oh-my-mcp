@@ -1,175 +1,112 @@
-# Hot Reload
+# Hot Reload Configuration
 
 Guide to configuration hot reload in oh-my-mcp.
 
 ## Overview
 
-oh-my-mcp watches the configuration file for changes and automatically reloads when modified. This allows you to add or modify servers without restarting the entire application.
+oh-my-mcp watches the configuration file for changes and automatically reloads when modified. The system supports smart config diff detection, graceful rolling restarts, and validation with automatic rollback.
 
 ## How It Works
 
-1. File watcher monitors `config.yaml`
-2. On file change, configuration is reloaded
-3. New servers (not previously running) are automatically started
-4. Existing servers continue running
+1. **File Watcher**: Monitors `config.yaml` using [chokidar](https://github.com/paulmillr/chokidar) for cross-platform reliability.
+2. **Debouncing**: A 500ms delay prevents "reload storms" during rapid saves.
+3. **Validation**: Uses Zod schemas to ensure the new configuration is valid before applying.
+4. **Smart Diff**: Detects exactly which servers were added, removed, or modified.
+5. **Graceful Restart**: Only restarts servers affected by critical configuration changes (e.g., `command`, `env`, `port`).
 
-## Triggering Hot Reload
-
-Simply edit the config file:
-
-```bash
-# Edit config
-vim config.yaml
-
-# Or use inotifywait (Linux)
-inotifywait -m config.yaml -e modify
-```
-
-## What Happens on Reload
-
-### New Servers Added
-
-If you add a new server to config:
+## Configuration Options
 
 ```yaml
-# Before
-servers:
-  memory:
-    command: ["npx", "-y", "@modelcontextprotocol/server-memory"]
-
-# After (added fetch)
-servers:
-  memory:
-    command: ["npx", "-y", "@modelcontextprotocol/server-memory"]
-  fetch:
-    command: ["uvx", "mcp-server-fetch"]
+hotReload:
+  enabled: true                    # Enable/disable hot reload
+  debounceMs: 500                 # Debounce delay (ms)
+  awaitWriteFinishMs: 300         # Wait for file writes to settle
+  usePolling: false              # Use polling instead of native events
+  
+  # Reload strategy
+  strategy: "graceful"           # immediate | graceful | rolling
+  staggerDelay: 1000              # Delay between server restarts (ms)
+  maxConcurrent: 2               # Max concurrent restarts (rolling)
+  
+  # Validation
+  validateBeforeApply: true      # Validate before applying
+  rollbackOnError: true          # Rollback on validation failure
 ```
 
-The new `fetch` server will automatically start!
+## Strategies
 
-### Existing Servers
+### immediate
 
-Existing servers **continue running** - they are not restarted.
+All operations run in parallel without delay. Fastest but may cause brief service disruption.
 
-To apply changes to existing servers, restart oh-my-mcp:
+### graceful (default)
 
-```bash
-# Stop
-pkill -f oh-my-mcp
+Sequential operations with stagger delay between each server restart. Recommended for production.
 
-# Start
-npm run dev
-```
+### rolling
 
-### Servers Removed from Config
+Batch processing with `maxConcurrent` limit. Best for maintaining availability when managing a large number of servers.
 
-Running servers **continue running** even if removed from config. Stop them manually:
+## Implementation Details
 
-```bash
-curl -X POST -H "Authorization: Bearer TOKEN" http://localhost:8080/servers/server-name/stop
-```
+### Smart Diff Detection
 
-## Limitations
+The system calculates a diff between the old and new configuration to minimize disruption.
 
-Hot reload:
+**Critical changes (Requires restart):**
 
-- ✅ Adds new servers
-- ✅ Changes to environment variables (for new servers)
-- ❌ Does not restart existing servers
-- ❌ Does not update running server configurations
+- `command`: The executable or arguments changed.
+- `env`: Environment variables modified.
+- `port`: Listening port changed.
+- `transport`: Transport type changed.
 
-## File Watcher Details
+**Non-critical changes (Updated live):**
 
-- Uses Node.js `fs.watchFile`
-- Polls every 1 second
-- Debounced to prevent multiple reloads
+- `timeout`: Request/response timeout settings.
+- `enabled`: Enable/disable flag (if disabled, server is stopped; if enabled, it is started).
+- `healthCheck`: Health check intervals or paths.
 
-## Manually Reload Configuration
+### Validation & Rollback
 
-To trigger a manual reload, touch the config file:
+Before applying a new configuration, the system validates:
 
-```bash
-touch config.yaml
-```
+- **YAML Syntax**: Proper structure and indentation.
+- **Port Range**: Valid ports (1-65535).
+- **Zod Schema**: Full compliance with the expected configuration structure.
 
-Or restart the service:
-
-```bash
-# If running with systemd
-sudo systemctl restart oh-my-mcp
-```
+If validation fails, the system logs the error and **rolls back** to the last known valid configuration, ensuring the service remains stable.
 
 ## Best Practices
 
-### For Development
+### Development
 
-Hot reload is great for development:
+- Keep hot reload enabled to quickly test new server configurations without manual restarts.
 
-- Add new servers quickly
-- Test configurations
-- No downtime
+### Production
 
-### For Production
-
-In production, consider:
-
-- Test config changes in development first
-- Use rolling restarts for existing servers
-- Monitor logs during changes
-
-## Debugging
-
-Enable debug logging to see reload events:
-
-```yaml
-logLevel: debug
-```
-
-You'll see messages like:
-
-```text
-{"level":30,"msg":"Config file changed, reloading..."}
-{"level":30,"msg":"Auto-starting server: fetch"}
-{"level":30,"msg":"Config hot-reloaded"}
-```
+- Use the `graceful` strategy.
+- Always keep `validateBeforeApply: true` to prevent accidental downtime from malformed config files.
+- Monitor logs (log level `debug` or `info`) during configuration updates.
 
 ## Troubleshooting
 
-### Reload Not Working
+### Reload Not Triggering
 
-1. **Check config file path**
-   - Default is `./config.yaml`
-   - Pass explicit path: `node dist/index.js /path/to/config.yaml`
+1. **Check Path**: Ensure you are editing the configuration file passed to the application.
+2. **Permissions**: Verify the application has read access to the file.
+3. **Polling**: On some networked filesystems (like NFS or certain Docker setups), you may need to set `usePolling: true`.
 
-2. **Check YAML is valid**
+### Rapid Reloading
 
-   ```bash
-   python3 -c "import yaml; yaml.safe_load(open('config.yaml'))"
-   ```
+If you see multiple reloads for a single save, increase `debounceMs` to `1000`.
 
-3. **Check file permissions**
+## API Control
 
-   ```bash
-   ls -la config.yaml
-   ```
+You can also manage servers manually via the Management API:
 
-### Multiple Reloads
-
-If you see rapid reloading, the file watcher might be triggered by:
-
-- Auto-save in editors
-- Backup software
-- File indexing
-
-Solution: Edit in a separate file and copy when done:
-
-```bash
-# Edit
-vim config.new.yaml
-
-# Test
-node dist/index.js config.new.yaml
-
-# Deploy
-mv config.new.yaml config.yaml
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /servers | List all servers and their current config |
+| POST | /servers/:id/restart | Manually restart a specific server |
+| POST | /servers/_stop-all | Stop all servers |
+| POST | /servers/_start-all | Start all configured servers |

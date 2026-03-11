@@ -1,16 +1,32 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import { ServerManager } from "./server_manager.js";
 import { getConfig } from "./config_loader.js";
-import { ServerState } from "./config.js";
 import { getLogger } from "./logger.js";
+import { ServerIdSchema, ListServersQuerySchema, validationErrorToResponse } from "./api/schemas.js";
 
 const logger = getLogger();
+
+function validateServerId(req: Request, res: Response, next: NextFunction): void {
+  const result = ServerIdSchema.safeParse(req.params);
+  if (!result.success) {
+    res.status(400).json(validationErrorToResponse(result));
+    return;
+  }
+  next();
+}
 
 export function createManagementAPI(manager: ServerManager) {
   const router = express.Router();
 
   // List all servers
   router.get("/servers", async (req: Request, res: Response) => {
+    const queryResult = ListServersQuerySchema.safeParse(req.query);
+    if (!queryResult.success) {
+      res.status(400).json(validationErrorToResponse(queryResult));
+      return;
+    }
+    
+    const { status, limit, offset } = queryResult.data;
     const servers = manager.getAllServers();
     const config = getConfig();
 
@@ -46,11 +62,18 @@ export function createManagementAPI(manager: ServerManager) {
       });
     }
 
-    res.json({ servers: result });
+    let filtered = result;
+    if (status && status !== "all") {
+      filtered = result.filter(s => s.status === status);
+    }
+    
+    const paginated = filtered.slice(offset, offset + limit);
+    
+    res.json({ servers: paginated, total: filtered.length });
   });
 
   // Get server details
-  router.get("/servers/:id", async (req: Request, res: Response) => {
+  router.get("/servers/:id", validateServerId, async (req: Request, res: Response) => {
     const { id } = req.params;
     const server = manager.getServer(id);
 
@@ -80,7 +103,7 @@ export function createManagementAPI(manager: ServerManager) {
   });
 
   // Create/start server
-  router.post("/servers/:id/start", async (req: Request, res: Response) => {
+  router.post("/servers/:id/start", validateServerId, async (req: Request, res: Response) => {
     const { id } = req.params;
     const config = getConfig();
 
@@ -98,7 +121,7 @@ export function createManagementAPI(manager: ServerManager) {
   });
 
   // Stop server
-  router.post("/servers/:id/stop", async (req: Request, res: Response) => {
+  router.post("/servers/:id/stop", validateServerId, async (req: Request, res: Response) => {
     const { id } = req.params;
 
     try {
@@ -111,7 +134,7 @@ export function createManagementAPI(manager: ServerManager) {
   });
 
   // Restart server
-  router.post("/servers/:id/restart", async (req: Request, res: Response) => {
+  router.post("/servers/:id/restart", validateServerId, async (req: Request, res: Response) => {
     const { id } = req.params;
 
     try {
@@ -124,7 +147,7 @@ export function createManagementAPI(manager: ServerManager) {
   });
 
   // Get server logs
-  router.get("/servers/:id/logs", async (req: Request, res: Response) => {
+  router.get("/servers/:id/logs", validateServerId, async (req: Request, res: Response) => {
     const { id } = req.params;
     const server = manager.getServer(id);
 
@@ -152,7 +175,7 @@ export function createManagementAPI(manager: ServerManager) {
   });
 
   // Health check
-  router.get("/servers/:id/health", async (req: Request, res: Response) => {
+  router.get("/servers/:id/health", validateServerId, async (req: Request, res: Response) => {
     const { id } = req.params;
     const server = manager.getServer(id);
 
@@ -169,7 +192,7 @@ export function createManagementAPI(manager: ServerManager) {
   });
 
   // Get server MCP info (tools, resources, prompts)
-  router.get("/servers/:id/info", async (req: Request, res: Response) => {
+  router.get("/servers/:id/info", validateServerId, async (req: Request, res: Response) => {
     const { id } = req.params;
     const info = await manager.getServerInfo(id);
 
