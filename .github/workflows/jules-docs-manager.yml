@@ -1,0 +1,105 @@
+name: Jules Documentation Manager
+
+on:
+  schedule:
+    - cron: '0 0 */3 * *'  # Every 3 days at midnight
+  workflow_dispatch:
+    inputs:
+      task:
+        description: 'Documentation task for Jules'
+        required: true
+        type: choice
+        options:
+          - Fix broken links in documentation
+          - Format improvements for markdown files
+          - Update references based on code changes
+          - Full documentation review and maintenance
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  docs-manager:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Get current branch info
+        id: branch-info
+        run: |
+          echo "current_branch=$(echo ${GITHUB_REF#refs/heads/})" >> $GITHUB_OUTPUT
+          echo "is_dev=${{ github.ref == 'refs/heads/dev' }}" >> $GITHUB_OUTPUT
+
+      - name: Invoke Jules for Documentation Management
+        uses: google-labs-code/jules-invoke@v1
+        with:
+          prompt: |
+            You are a documentation manager for the repository "${{ github.repository }}".
+
+            Current branch: ${{ github.ref_name }}
+            Task: ${{ github.event.inputs.task || 'Perform scheduled documentation maintenance' }}
+
+            ## Your Responsibilities
+
+            1. **Fix Broken Links**
+               - Check all markdown files in docs/ folder
+               - Verify internal links between documentation files
+               - Fix or remove broken relative links
+               - Update any outdated paths or references
+
+            2. **Format Improvements**
+               - Ensure consistent markdown formatting across all docs
+               - Check for proper heading hierarchy (H1 → H2 → H3)
+               - Verify code blocks have proper language tags
+               - Standardize table formatting
+               - Ensure proper line breaks and spacing
+
+            3. **Update References**
+               - Sync documentation between main and dev branches if needed
+               - Update cross-references between documentation files
+               - Ensure table of contents matches file structure
+               - Verify all relative paths are correct
+
+            4. **Quality Checks**
+               - Check for orphaned documentation files
+               - Ensure all docs files have proper filenames
+               - Verify no temporary or debug content in docs
+               - Check for consistent terminology
+
+            ## Rules
+
+            - ONLY modify files in the docs/ folder
+            - DO NOT modify code files, scripts, or configuration
+            - Commit changes directly to the current branch
+            - Use clear commit messages: "docs: [task description]"
+            - If no changes needed, report "No documentation updates required"
+
+            ## Repository Structure
+
+            - docs/ - All documentation files
+            - README.md - Root documentation index
+            - scripts/ - Setup and utility scripts
+
+            Begin your task now.
+          jules_api_key: ${{ secrets.JULES_API_KEY }}
+          starting_branch: ${{ github.ref_name }}
+          include_last_commit: true
+          include_commit_log: true
+
+      - name: Verify changes
+        if: always()
+        run: |
+          echo "Workflow completed. Check git status for any changes."
+          git status
+
+      - name: Show last commit
+        if: always()
+        run: |
+          echo "Latest commit:"
+          git log --oneline -3
