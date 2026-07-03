@@ -8,7 +8,7 @@ const logger = getLogger();
 export function createGatewayAPI(manager: ServerManager) {
   const router = express.Router();
 
-  router.use((req: Request, res: Response, _next: NextFunction) => {
+  router.use(async (req: Request, res: Response, _next: NextFunction) => {
     const path = req.path;
 
     let serverId: string | undefined;
@@ -31,6 +31,21 @@ export function createGatewayAPI(manager: ServerManager) {
 
     if (server.status !== "running") {
       return res.status(503).json({ error: `Server '${serverId}' is not running (status: ${server.status})` });
+    }
+
+    try {
+      const mcpResult = await manager.proxyMCPRequest(serverId, req.body);
+      if (mcpResult === null) {
+        return res.status(502).json({ error: "Server not available" });
+      }
+      if (mcpResult.handled) {
+        res.status(mcpResult.status);
+        for (const [k, v] of Object.entries(mcpResult.headers)) res.setHeader(k, v);
+        return res.json(mcpResult.body);
+      }
+    } catch (err: any) {
+      logger.error({ server: serverId, error: err.message }, "MCP proxy request failed");
+      return res.status(502).json({ error: err.message });
     }
 
     const targetPort = server.port;

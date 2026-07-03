@@ -262,6 +262,26 @@ export class ServerManager {
     return Array.from(this.servers.values()).map(server => adaptToLegacyState(server));
   }
 
+  async proxyMCPRequest(
+    id: string,
+    body: any
+  ): Promise<{ handled: true; status: number; headers: Record<string, string>; body: any } | { handled: false } | null> {
+    const server = this.servers.get(id);
+    if (!server || !server.isRunning()) return null;
+
+    const transport = this.transports.get(id);
+    if (!transport) return null;
+
+    if (transport.usesPort()) return { handled: false };
+
+    try {
+      const response = await transport.sendRequest(server, body);
+      return { handled: true, status: 200, headers: { "content-type": "application/json" }, body: response };
+    } catch (err: any) {
+      return { handled: true, status: 502, headers: { "content-type": "application/json" }, body: { error: err.message } };
+    }
+  }
+
   async healthCheck(id: string): Promise<boolean> {
     const domainServer = this.servers.get(id);
     if (!domainServer || !domainServer.isRunning()) {
