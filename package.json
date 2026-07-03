@@ -1,7 +1,7 @@
 {
   "name": "@ev3lynx/oh-my-mcp",
   "version": "1.0.2-pre",
-  "description": "Native MCP gateway with management layer on top of supergateway",
+  "description": "Native MCP gateway with management layer — stdio and supergateway transports",
   "author": "ev3lynx727",
   "main": "dist/index.js",
   "type": "module",

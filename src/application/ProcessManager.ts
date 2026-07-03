@@ -59,6 +59,8 @@ export class ProcessManager {
 
     this.runningProcesses.set(id, child);
 
+    ;[child.stdin, child.stdout, child.stderr].forEach(s => s?.on("error", () => {}))
+
     child.stdout?.on("data", (data) => {
       logger.debug({ server: id, type: "stdout" }, data.toString().trim());
     });
