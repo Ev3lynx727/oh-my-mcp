@@ -104,7 +104,6 @@ export class ProcessManager {
    * @param legacyConfig - Legacy ServerConfig for start
    */
   async restartServer(server: MCPServer, legacyConfig: LegacyServerConfig): Promise<void> {
-    const id = server.id;
     await this.stopServer(server);
     // Small backoff before restart
     await new Promise((resolve) => setTimeout(resolve, 1000));

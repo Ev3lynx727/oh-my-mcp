@@ -1,4 +1,4 @@
-import { ServerConfig, ServerState, ServerStatus, HealthStatus, ServerInfo } from './ServerStatus.js';
+import { ServerConfig, ServerState, ServerStatus, HealthStatus } from './ServerStatus.js';
 import { EventEmitter } from 'events';
 
 /**
@@ -279,7 +279,7 @@ export class MCPServer extends EventEmitter {
    * Clears process and port (if auto-allocated).
    */
   markStopped(): void {
-    const wasRunning = this.isRunning();
+    const _wasRunning = this.isRunning();
     this.state.status = ServerStatus.STOPPED;
     this.state.process = undefined;
     this.state.health = undefined;

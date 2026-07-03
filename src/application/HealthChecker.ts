@@ -1,5 +1,5 @@
 import { MCPServer } from "../domain/Server.js";
-import { HealthStatus } from "../domain/ServerStatus.js";
+import { HealthStatus as _HealthStatus } from "../domain/ServerStatus.js";
 import type { HttpClient } from "../infrastructure/http/HttpClient.js";
 
 /**

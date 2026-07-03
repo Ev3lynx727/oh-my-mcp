@@ -8,7 +8,7 @@ const logger = getLogger();
 export function createGatewayAPI(manager: ServerManager) {
   const router = express.Router();
 
-  router.use((req: Request, res: Response, next: NextFunction) => {
+  router.use((req: Request, res: Response, _next: NextFunction) => {
     const path = req.path;
 
     let serverId: string | undefined;

@@ -17,19 +17,19 @@ export class DirectStdioTransport implements ServerTransport {
     return false;
   }
 
-  getEndpoint(server: MCPServer): string {
+  getEndpoint(_server: MCPServer): string {
     return "stdio";
   }
 
-  async isReady(server: MCPServer, timeoutMs?: number): Promise<boolean> {
+  async isReady(_server: MCPServer, _timeoutMs?: number): Promise<boolean> {
     throw new Error("DirectStdioTransport.isReady not implemented");
   }
 
-  async healthCheck(server: MCPServer): Promise<boolean> {
+  async healthCheck(_server: MCPServer): Promise<boolean> {
     throw new Error("DirectStdioTransport.healthCheck not implemented");
   }
 
-  async sendRequest(server: MCPServer, request: any): Promise<any> {
+  async sendRequest(_server: MCPServer, _request: any): Promise<any> {
     throw new Error("DirectStdioTransport.sendRequest not implemented");
   }
 }

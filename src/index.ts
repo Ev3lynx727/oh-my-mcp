@@ -9,7 +9,7 @@ import { createManagementAPI } from "./api.js";
 import { createGatewayAPI } from "./gateway.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { errorHandler } from "./middleware/error-handler.js";
-import { metricsMiddleware, metricsErrorMiddleware, metricsHandler } from "./infrastructure/metrics/middleware.js";
+import { metricsMiddleware, metricsErrorMiddleware } from "./infrastructure/metrics/middleware.js";
 import { getMetrics } from "./infrastructure/metrics/metrics.js";
 import compression from "compression";
 import { timeoutMiddleware } from "./middleware/timeout.js";
