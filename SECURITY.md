@@ -6,8 +6,8 @@ Only the latest version is actively maintained and receives security updates.
 
 | Version | Supported          |
 |---------|-------------------|
-| 0.1.x   | ✅ (current)      |
-| < 0.1   | ❌                |
+| 1.x     | ✅ (current)      |
+| < 1.0   | ❌                |
 
 ---
 
