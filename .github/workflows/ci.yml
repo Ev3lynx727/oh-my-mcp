@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, develop]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, develop]
 
 jobs:
   test:
@@ -29,7 +29,10 @@ jobs:
         run: npm run build
 
       - name: Lint
-        run: npm run lint || echo "Lint not yet configured, skipping"
+        run: npm run lint
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
 
       - name: Run tests with coverage
         run: npm run test:coverage
