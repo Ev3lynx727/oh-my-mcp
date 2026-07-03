@@ -43,6 +43,9 @@ tmp/
 config.local.yaml
 config.*.yaml
 
+# Team / agent files — not in shipped artifact
+BACKLOG.md
+
 # Misc
 .cert/
 key.pem
