@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import { ServerManager } from "./server_manager.js";
 import { getConfig } from "./config_loader.js";
 import { getLogger } from "./logger.js";
+import { ServerConfigSchema } from "./config.js";
 import { ServerIdSchema, ListServersQuerySchema, validationErrorToResponse } from "./api/schemas.js";
 
 const logger = getLogger();
@@ -100,6 +101,26 @@ export function createManagementAPI(manager: ServerManager) {
       startedAt: server.startedAt,
       config: server.config,
     });
+  });
+
+  // Register a new server dynamically (adds to runtime config, no file write)
+  router.post("/servers/:id", validateServerId, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const bodyResult = ServerConfigSchema.safeParse(req.body);
+    if (!bodyResult.success) {
+      return res.status(400).json(validationErrorToResponse(bodyResult));
+    }
+
+    const config = getConfig();
+    config.servers[id] = bodyResult.data;
+
+    try {
+      await manager.startServer(id, config.servers[id]);
+      res.json({ id, status: "running" });
+    } catch (err: any) {
+      logger.error({ server: id, error: err.message }, "Failed to start registered server");
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Create/start server
