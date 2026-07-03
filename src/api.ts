@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import { ServerManager } from "./server_manager.js";
-import { getConfig } from "./config_loader.js";
+import { getConfig, saveRuntimeServer, removeRuntimeServer } from "./config_loader.js";
 import { getLogger } from "./logger.js";
 import { ServerConfigSchema } from "./config.js";
 import { ServerIdSchema, ListServersQuerySchema, validationErrorToResponse } from "./api/schemas.js";
@@ -113,6 +113,8 @@ export function createManagementAPI(manager: ServerManager) {
 
     const config = getConfig();
     config.servers[id] = bodyResult.data;
+
+    saveRuntimeServer(id, bodyResult.data);
 
     try {
       await manager.startServer(id, config.servers[id]);
@@ -244,6 +246,18 @@ export function createManagementAPI(manager: ServerManager) {
     }
 
     res.json({ results });
+  });
+
+  // Stop all servers
+  // Unregister a runtime server (stop + remove from cache)
+  router.delete("/servers/:id", validateServerId, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      await manager.stopServer(id);
+    } catch { /* already stopped */ }
+    delete getConfig().servers[id];
+    removeRuntimeServer(id);
+    res.json({ id, status: "removed" });
   });
 
   // Stop all servers

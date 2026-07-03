@@ -1,5 +1,5 @@
 import express from "express";
-import { loadConfig, watchConfig, shutdownWatcher } from "./config_loader.js";
+import { loadConfig, watchConfig, shutdownWatcher, loadRuntimeServers } from "./config_loader.js";
 import { initLogger, getLogger } from "./logger.js";
 import { Container } from "./di/container.js";
 import { AppModule } from "./di/modules/app.module.js";
@@ -185,6 +185,18 @@ async function main() {
       logger.info({ server: id }, "Auto-starting server");
       manager.startServer(id, serverConfig).catch((err) => {
         logger.error({ server: id, error: err.message }, "Failed to auto-start server");
+      });
+    }
+  }
+
+  // Load and start runtime-registered servers (survives restarts)
+  const runtimeServers = loadRuntimeServers();
+  for (const [id, serverConfig] of Object.entries(runtimeServers)) {
+    if (!config.servers[id]) {
+      config.servers[id] = serverConfig;
+      logger.info({ server: id }, "Starting runtime-registered server");
+      manager.startServer(id, serverConfig).catch((err) => {
+        logger.error({ server: id, error: err.message }, "Failed to start runtime server");
       });
     }
   }

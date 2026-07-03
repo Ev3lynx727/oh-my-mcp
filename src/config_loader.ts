@@ -1,8 +1,11 @@
-import { readFileSync, existsSync } from "fs";
-import { parse } from "path";
-import { Config, ConfigSchema } from "./config.js";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { join, parse, dirname } from "path";
+import { homedir } from "os";
+import { Config, ConfigSchema, ServerConfig } from "./config.js";
 import { getLogger } from "./logger.js";
 import { ConfigWatcher } from "./infrastructure/config/index.js";
+
+const RUNTIME_SERVERS_PATH = join(homedir(), ".local/share/oh-my-mcp/runtime-servers.json");
 
 let config: Config | null = null;
 let configPath: string;
@@ -82,4 +85,32 @@ export async function shutdownWatcher(): Promise<void> {
     await configWatcher.stop();
     configWatcher = null;
   }
+}
+
+export function saveRuntimeServer(id: string, serverConfig: ServerConfig): void {
+  try {
+    mkdirSync(dirname(RUNTIME_SERVERS_PATH), { recursive: true });
+    const file = existsSync(RUNTIME_SERVERS_PATH)
+      ? JSON.parse(readFileSync(RUNTIME_SERVERS_PATH, "utf-8"))
+      : { servers: {} };
+    file.servers[id] = serverConfig;
+    writeFileSync(RUNTIME_SERVERS_PATH, JSON.stringify(file, null, 2));
+  } catch { /* best effort */ }
+}
+
+export function removeRuntimeServer(id: string): void {
+  try {
+    if (!existsSync(RUNTIME_SERVERS_PATH)) return;
+    const file = JSON.parse(readFileSync(RUNTIME_SERVERS_PATH, "utf-8"));
+    delete file.servers[id];
+    writeFileSync(RUNTIME_SERVERS_PATH, JSON.stringify(file, null, 2));
+  } catch { /* best effort */ }
+}
+
+export function loadRuntimeServers(): Record<string, ServerConfig> {
+  try {
+    if (!existsSync(RUNTIME_SERVERS_PATH)) return {};
+    const file = JSON.parse(readFileSync(RUNTIME_SERVERS_PATH, "utf-8"));
+    return file.servers ?? {};
+  } catch { return {}; }
 }
