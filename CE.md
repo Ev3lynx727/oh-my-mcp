@@ -2,7 +2,7 @@
 
 ## Identity
 
-HTTP MCP gateway + process manager. Spawns stdio MCP servers via supergateway, exposes them behind a single HTTP API with auth, rate limiting, metrics, and hot-reload config. For Claude Desktop, Cursor, Windsurf sharing the same MCP server pool.
+HTTP MCP gateway + process manager. Spawns stdio MCP servers via supergateway (HTTP/SSE) or DirectStdioTransport (native JSON-RPC over stdin/stdout). Exposes them behind a single HTTP API with auth, rate limiting, metrics, and hot-reload config. For Claude Desktop, Cursor, Windsurf sharing the same MCP server pool.
 
 `@ev3lynx/oh-my-mcp` v1.0.2-pre — MIT, TypeScript, Node >=18.
 
@@ -15,7 +15,7 @@ src/
 ├── config_loader.ts             YAML/JSON loading, chokidar watcher, reload + rollback
 ├── logger.ts                    pino singleton
 ├── auth.ts                      Bearer token middleware (single or multi-token)
-├── gateway.ts                   Gateway router: POST /mcp/:serverId -> http.request -> backend
+├── gateway.ts                   Gateway router: POST /mcp/:serverId -> proxyMCPRequest (stdio or HTTP)
 ├── server_manager.ts            ServerManager: lifecycle orchestrator (start/stop/restart/health)
 ├── api.ts                       Management API router (CRUD servers, SSE logs, bulk operations)
 ├── api/schemas.ts               Zod validation for API params/query
@@ -48,7 +48,7 @@ src/
 │   └── transports/
 │       ├── TransportFactory.ts  Creates SuperGatewayTransport or DirectStdioTransport
 │       ├── SuperGatewayTransport.ts  HTTP transport for supergateway-bridged servers
-│       └── DirectStdioTransport.ts   STUB — "not implemented"
+│       └── DirectStdioTransport.ts   JSON-RPC over stdin/stdout — no supergateway
 ├── middleware/
 │   ├── audit.ts                 POST audit logging
 │   ├── error-handler.ts         Centralized sanitized JSON error handler
@@ -62,7 +62,7 @@ src/
 
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Transport | supergateway bridge (npx) | Converts any stdio MCP server to HTTP with SSE. Avoids reimplementing MCP stdio protocol. DirectStdioTransport planned but stubbed. |
+| Transport | supergateway (HTTP/SSE) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients (Windows, LAN, VPS); DirectStdioTransport for local servers (~0.5ms faster per request, one less process). |
 | Two apps | Management (8080) + Gateway (8090) | Different auth/rate-limit policies. Management for operators, gateway for clients. |
 | Domain model | MCPServer state machine | Pure domain with enforced state transitions (STOPPED→STARTING→RUNNING→STOPPING→ERROR). Testable without spawning processes. |
 | DI | Manual container (70 lines) | No decorators/reflection. Avoids tsyringe/inversify dependency. |
@@ -81,10 +81,11 @@ config.yaml
 Client request
   -> Gateway (port 8090): POST /mcp/:serverId
   -> ServerManager.getServer(id) -> check status === "running"
-  -> Filter hop-by-hop headers
-  -> http.request -> http://127.0.0.1:<server.port>/mcp
-  -> Pipe response back
-  -> Error -> 502 (Bad Gateway), Timeout -> 504 (Gateway Timeout)
+  -> ServerManager.proxyMCPRequest(id, body)
+     -> transport.usesPort()?
+        YES (supergateway): http.request -> http://127.0.0.1:<port>/mcp -> pipe response
+        NO  (stdio):        transport.sendRequest(server, body) -> JSON-RPC over stdin/stdout
+  -> Error -> 502/503/504
 
 Server lifecycle
   config.servers.*.enabled !== false
@@ -96,6 +97,15 @@ Server lifecycle
   -> Non-zero exit -> auto-restart (5s delay)
   -> SIGTERM/SIGINT -> stopAll() -> 10s hard limit -> process.exit(0)
 ```
+
+### Transport Modes
+
+| Mode | Bridge process | Port | Latency | Use case |
+|------|---------------|------|---------|----------|
+| `supergateway` | supergateway HTTP→SSE→stdio | Allocated (8100+) | ~+2ms per request | Remote clients (Windows→WSL, LAN, VPS) |
+| `stdio` | None — direct JSON-RPC | 0 (no port) | ~4ms local | Local ark-* servers on the same machine |
+
+See `docs/transport-modes.md` for full latency benchmarks, serialization analysis, and migration guide.
 
 ## Key Types
 
@@ -124,8 +134,8 @@ Config (YAML):
 
 ## Critical Constraints
 
-- **supergateway via npx** — ProcessManager runs `npx -y supergateway` as child process, not import. The `supergateway` npm dep in package.json may be unused.
-- **DirectStdioTransport is a stub** — all methods throw. All servers currently require supergateway.
+- **supergateway via npx** — ProcessManager runs `npx -y supergateway` as child process, not import. `supergateway` is a pinned dependency for offline installs; runtime also forces `npx -y` to always get latest.
+- **DirectStdioTransport** — fully implemented. Servers with `transport: stdio` in config use native JSON-RPC over stdin/stdout, skipping supergateway entirely.
 - **Port range 8100+** — auto ports start at 8100. Manual ports bypass allocator but tracked for conflict.
 - **Health stale at 2x interval** — `canAcceptRequests()` uses 2x configured interval as staleness threshold.
 - **Shutdown hard limit 10s** — after SIGTERM/SIGINT, servers get 10s then process.exit(0).
@@ -146,7 +156,8 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 - Full middleware (auth, rate-limit, metrics, request-id, timeout) — **done**
 - DI container — **done**
 - CLI arg parsing — **done**
-- DirectStdioTransport — **stub**
+- DirectStdioTransport — **done** (5 integration tests passing)
+- Gateway stdio dispatch (proxyMCPRequest) — **done** (full HTTP→stdio→child→response loop)
 - Dockerfile — **not committed**
 - WebSocket / OAuth2 / React UI — **roadmap**
 
@@ -160,7 +171,7 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 |------|---------|
 | `src/gateway.ts` | Proxy logic, SSE passthrough edge cases |
 | `src/application/ProcessManager.ts` | Spawn args, DirectStdioTransport will change this |
-| `src/infrastructure/transports/DirectStdioTransport.ts` | **Stub** — needs JSON-RPC over stdio impl |
+| `src/infrastructure/transports/DirectStdioTransport.ts` | Edge cases: large payloads, multi-line JSON, process restart |
 | `src/infrastructure/transports/SuperGatewayTransport.ts` | SSE response parsing (fragile for non-SSE) |
 | `src/server_manager.ts` | Bridge pattern (legacy→domain→legacy), reduce when migration complete |
 | `src/index.ts` | Growing too large — two apps + middleware + shutdown in one file |
