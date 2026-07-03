@@ -157,6 +157,7 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 - DI container — **done**
 - CLI arg parsing — **done**
 - DirectStdioTransport — **done** (5 integration tests passing)
+- Runtime server registration (POST/DELETE /servers/:id) — **done** (persists across restarts)
 - Gateway stdio dispatch (proxyMCPRequest) — **done** (full HTTP→stdio→child→response loop)
 - Dockerfile — **not committed**
 - WebSocket / OAuth2 / React UI — **roadmap**

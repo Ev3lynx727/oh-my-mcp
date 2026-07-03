@@ -166,3 +166,32 @@ proxyMCPRequest(id, body)
 ```
 
 Key design property: **the gateway never needs to know transport types**. It calls `proxyMCPRequest` and either gets a direct response (stdio) or a signal to fall through to HTTP proxy (supergateway). Adding a third transport mode requires zero gateway changes.
+
+## Runtime Server Registration
+
+Servers can be registered at runtime via the management API without editing `config.yaml`. Registered servers persist in `~/.local/share/oh-my-mcp/runtime-servers.json` and survive restarts.
+
+### API
+
+```
+POST /servers/:id   → register, persist, start
+DELETE /servers/:id  → stop, unregister, remove from cache
+```
+
+`POST` accepts the same `ServerConfig` body as `config.yaml`:
+
+```json
+{
+  "command": ["node", "server.mjs"],
+  "transport": "stdio",
+  "timeout": 30000,
+  "enabled": true
+}
+```
+
+### Lifecycle
+
+1. **Registration** — body is Zod-validated, added to runtime config, persisted to JSON cache, auto-started
+2. **Restart** — cache is loaded and merged into config on startup. `config.yaml` wins on ID collision (config.yaml server starts, cache entry for same ID is skipped)
+3. **Config reload** — hot-reload from file edit detects runtime servers in `removed` via diff and stops them, but cache entry persists. Server comes back on next restart unless `DELETE /servers/:id` was called first
+4. **Deletion** — `DELETE` stops the server, removes from runtime config, and deletes the cache entry
