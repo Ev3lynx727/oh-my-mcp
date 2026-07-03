@@ -2,9 +2,26 @@
 
 ## Identity
 
-HTTP MCP gateway + process manager. Spawns stdio MCP servers via supergateway (HTTP/SSE) or DirectStdioTransport (native JSON-RPC over stdin/stdout). Exposes them behind a single HTTP API with auth, rate limiting, metrics, and hot-reload config. For Claude Desktop, Cursor, Windsurf sharing the same MCP server pool.
+HTTP MCP gateway + process manager. Spawns stdio MCP servers via supergateway (SSE output on port 8100+) or DirectStdioTransport (native JSON-RPC over stdin/stdout). Manages child process lifecycle. Exposes management API (port 8080) and optional gateway (port 8090). Remote clients connect directly to supergateway SSE ports. For Claude Desktop, Cursor, Windsurf sharing the same MCP server pool.
 
 `@ev3lynx/oh-my-mcp` v1.0.2-pre — MIT, TypeScript, Node >=18.
+
+## Client connectivity
+
+```
+Windows OpenCode/Cursor/Claude Desktop
+  │
+  ├─ SSE → http://localhost:8101/sse → supergateway → ark-exec
+  ├─ SSE → http://localhost:8102/sse → supergateway → ark-memory
+  └─ SSE → http://localhost:8103/sse → supergateway → ark-resolve
+
+oh-my-mcp in WSL (systemd user service)
+  ├─ port 8080: Management API (GET /servers, POST /servers/:id/start, etc.)
+  ├─ port 8090: Gateway (returns 501 for SSE-mode servers)
+  └─ port 8101-8103: supergateway SSE per server
+```
+
+Key: gateway does NOT proxy data for SSE-mode servers. External clients connect to SSE ports directly. Gateway handles management only (start/stop/restart/list).
 
 ## Architecture
 
@@ -183,3 +200,16 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 - `config.yaml` — runtime config (servers, auth, ports)
 - `config.example.yaml` — documented example for users
 - `~/node_modules/@ev3lynx/oh-my-mcp/` — globally installed copy (npm)
+- `node_modules/supergateway/dist/gateways/stdioToSse.js` — patched locally for SSE reconnection (see Patches)
+
+## Patches
+
+### supergateway SSE reconnection
+
+**File**: `node_modules/supergateway/dist/gateways/stdioToSse.js`
+
+**Problem**: One `Server` instance shared across all SSE connections. SDK's `Server.connect()` only accepts one transport — second connection crashes with `Already connected to a transport`.
+
+**Fix** (2-line change): Removed `const server = new Server(...)` from module scope, inserted inside the GET/sse handler before `await server.connect(sseTransport)`.
+
+**Persistence**: Pinned in package.json, but `npm install` overwrites. To re-apply: move `const server = new Server({ name: 'supergateway', ... })` into the `app.get(ssePath, ...)` handler (before the `await server.connect` call), rename to `sseServer`.
