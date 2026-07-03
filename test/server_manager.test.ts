@@ -123,6 +123,7 @@ describe('ServerManager', () => {
         })),
         setAllocatedPort: vi.fn(),
         getProcess: vi.fn(() => null),
+        getTransport: vi.fn(() => 'supergateway'),
         on: vi.fn(), // for event bridge
       } as any as MCPServer;
       manager.servers.set('s1', mockServer);

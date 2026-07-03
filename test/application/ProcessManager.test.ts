@@ -39,6 +39,7 @@ describe('ProcessManager', () => {
   const makeServer = (id: string, port: number = 1234): MCPServer => ({
     id,
     getPort: () => port,
+    getTransport: () => 'supergateway',
   } as unknown as MCPServer);
 
   beforeEach(() => {

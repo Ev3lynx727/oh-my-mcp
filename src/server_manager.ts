@@ -100,18 +100,22 @@ export class ServerManager {
     }
 
     // Determine port with PortAllocator
-    let port: number;
-    if (legacyConfig.port !== undefined) {
-      port = legacyConfig.port;
-      const isSameManualRestart = existingDomain && existingDomain.getPort() === port;
-      if (!isSameManualRestart) {
-        if (this.portAllocator.isAllocated(port)) {
-          throw new Error(`Port ${port} is already in use by another server`);
+    const transportType = server.getTransport();
+    let port: number = 0;
+
+    if (transportType !== "stdio") {
+      if (legacyConfig.port !== undefined) {
+        port = legacyConfig.port;
+        const isSameManualRestart = existingDomain && existingDomain.getPort() === port;
+        if (!isSameManualRestart) {
+          if (this.portAllocator.isAllocated(port)) {
+            throw new Error(`Port ${port} is already in use by another server`);
+          }
+          this.portAllocator.reserve(port);
         }
-        this.portAllocator.reserve(port);
+      } else {
+        port = this.portAllocator.allocate();
       }
-    } else {
-      port = this.portAllocator.allocate();
     }
 
     server.markStarting();

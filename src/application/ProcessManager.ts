@@ -26,26 +26,36 @@ export class ProcessManager {
     const env = this.resolveEnv(legacyConfig.env || {});
     const mergedEnv = { ...process.env, ...env };
 
-    const stdioCmd = legacyConfig.command.join(" ");
+    const isStdio = server.getTransport() === "stdio";
 
-    const args = [
-      "-y",
-      "supergateway",
-      "--stdio",
-      stdioCmd,
-      "--outputTransport",
-      "streamableHttp",
-      "--port",
-      port.toString(),
-    ];
-
-    logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting server process");
-
-    const child = spawn(process.platform === "win32" ? "npx.cmd" : "npx", args, {
-      env: mergedEnv,
-      stdio: ["pipe", "pipe", "pipe"],
-      windowsHide: true,
-    });
+    let child: ChildProcess;
+    if (isStdio) {
+      const cmd = legacyConfig.command;
+      logger.info({ server: id, command: cmd }, "Starting stdio server process");
+      child = spawn(cmd[0], cmd.slice(1), {
+        env: mergedEnv,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      });
+    } else {
+      const stdioCmd = legacyConfig.command.join(" ");
+      const args = [
+        "-y",
+        "supergateway",
+        "--stdio",
+        stdioCmd,
+        "--outputTransport",
+        "streamableHttp",
+        "--port",
+        port.toString(),
+      ];
+      logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting supergateway server process");
+      child = spawn(process.platform === "win32" ? "npx.cmd" : "npx", args, {
+        env: mergedEnv,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      });
+    }
 
     this.runningProcesses.set(id, child);
 

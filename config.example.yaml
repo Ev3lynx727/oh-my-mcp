@@ -10,13 +10,18 @@ auth:
     - "zn5azlpglew393uh57mj70ez6b7cmgft0251nxm6pxs7y02f1y"  # Your existing token
 
 servers:
+  # --- transport modes ---
+  # "supergateway" (default): wraps stdio server via supergateway bridge → HTTP endpoint
+  # "stdio":       spawns the command directly, gateway proxies JSON-RPC over stdin/stdout
+  #                use for any command that speaks JSON-RPC on stdio natively
+
   # Example: custom transport and health check settings
   # example:
   #   command:
   #     - "npx"
   #     - "-y"
   #     - "@modelcontextprotocol/server-example"
-  #   transport: "supergateway"   # or "stdio" (experimental)
+  #   transport: "supergateway"
   #   healthCheck:
   #     interval: 10000           # check every 10s
   #     timeout: 3000            # health check timeout 3s
@@ -186,6 +191,7 @@ servers:
     command:
       - "node"
       - "/home/ev3lynx/Project/local-server-brain/build/index.js"
+    transport: "stdio"
     env:
       BRAIN_DATA_DIR: "/home/ev3lynx/server-brain"
     timeout: 120000
