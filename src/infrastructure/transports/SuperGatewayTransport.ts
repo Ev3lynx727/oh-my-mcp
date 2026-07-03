@@ -22,27 +22,14 @@ export class SuperGatewayTransport implements ServerTransport {
 
     const timeout = timeoutMs || 30000;
     const start = Date.now();
-    const body = {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: "2024-11-05",
-        capabilities: {},
-        clientInfo: { name: "oh-my-mcp-health", version: "1.0.0" }
-      }
-    };
 
     while (Date.now() - start < timeout) {
       try {
-        const response = await this.httpClient.post(`http://127.0.0.1:${port}/mcp`, body, { timeout: 5000 });
-        if (response.ok || response.status === 400 || response.status === 406) {
+        const response = await this.httpClient.get(`http://127.0.0.1:${port}/healthz`, { timeout: 5000 });
+        if (response.ok) {
           return true;
         }
-      } catch (err: any) {
-        if (err instanceof HttpError && (err.status === 400 || err.status === 406)) {
-          return true;
-        }
+      } catch {
         // continue polling
       }
       await new Promise((r) => setTimeout(r, 500));
@@ -57,23 +44,9 @@ export class SuperGatewayTransport implements ServerTransport {
     }
 
     try {
-      const response = await this.httpClient.post(
-        `http://127.0.0.1:${port}/mcp`,
-        {
-          jsonrpc: "2.0",
-          id: 2,
-          method: "tools/list",
-          params: {},
-        },
-        {
-          timeout: server.getTimeout(),
-        }
-      );
+      const response = await this.httpClient.get(`http://127.0.0.1:${port}/healthz`, { timeout: 5000 });
       return response.ok;
     } catch (err: any) {
-      if (err instanceof HttpError && (err.status === 400 || err.status === 406)) {
-        return true;
-      }
       logger.debug(
         { server: server.id, err: err instanceof Error ? err.message : String(err) },
         "Health check failed"

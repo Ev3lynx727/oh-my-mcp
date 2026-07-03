@@ -39,18 +39,20 @@ export class ProcessManager {
       });
     } else {
       const stdioCmd = legacyConfig.command.join(" ");
+      const sgPath = new URL("../../node_modules/supergateway/dist/index.js", import.meta.url).pathname;
       const args = [
-        "-y",
-        "supergateway",
+        sgPath,
         "--stdio",
         stdioCmd,
         "--outputTransport",
-        "streamableHttp",
+        "sse",
         "--port",
         port.toString(),
+        "--healthEndpoint",
+        "/healthz",
       ];
       logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting supergateway server process");
-      child = spawn(process.platform === "win32" ? "npx.cmd" : "npx", args, {
+      child = spawn("node", args, {
         env: mergedEnv,
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
@@ -62,7 +64,13 @@ export class ProcessManager {
     ;[child.stdin, child.stdout, child.stderr].forEach(s => s?.on("error", () => {}))
 
     child.stdout?.on("data", (data) => {
-      logger.debug({ server: id, type: "stdout" }, data.toString().trim());
+      const msg = data.toString().trim();
+      try {
+        const parsed = JSON.parse(msg);
+        logger.info({ server: id, type: "stdout", level: parsed.level, log: parsed.msg });
+      } catch {
+        logger.info({ server: id, type: "stdout" }, msg);
+      }
     });
 
     child.stderr?.on("data", (data) => {

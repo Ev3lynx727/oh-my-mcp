@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import { ServerManager } from "./server_manager.js";
 import { getLogger } from "./logger.js";
-import http from "http";
 
 const logger = getLogger();
 
@@ -21,6 +20,10 @@ export function createGatewayAPI(manager: ServerManager) {
 
     if (!serverId) {
       return res.status(400).json({ error: "Missing server ID. Use /mcp/:serverId or X-MCP-Server header" });
+    }
+
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed. Use POST for JSON-RPC" });
     }
 
     const server = manager.getServer(serverId);
@@ -48,90 +51,12 @@ export function createGatewayAPI(manager: ServerManager) {
       return res.status(502).json({ error: err.message });
     }
 
-    const targetPort = server.port;
-    const targetPath = "/mcp";
-
-    // Filter headers to remove problematic ones
-    const forwardHeaders: Record<string, string | string[]> = {};
-    for (const [key, value] of Object.entries(req.headers)) {
-      // Skip connection headers and host header, and skip undefined values
-      if (!['host', 'connection', 'content-length', 'transfer-encoding'].includes(key.toLowerCase()) && value !== undefined) {
-        forwardHeaders[key] = value;
-      }
-    }
-
-    const options = {
-      hostname: "127.0.0.1",
-      port: targetPort,
-      path: targetPath,
-      method: req.method,
-      headers: forwardHeaders,
-      timeout: 60000,  // Increased to 60 seconds for streaming responses
-    };
-
-    // Prepare body if present 
-    let bodyData: string | null = null;
-    if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
-      if (req.body) {
-        bodyData = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-        // Set content-length based on actual body
-        const bodyBuffer = Buffer.from(bodyData);
-        options.headers['content-length'] = bodyBuffer.length.toString();
-      }
-    }
-
-    const proxyOptions = {
-      ...options,
-      headers: {
-        ...options.headers,
-        host: `localhost:${targetPort}`,
-        accept: 'application/json, text/event-stream',
-      },
-    };
-
-    const proxyReq = http.request(proxyOptions, (proxyRes) => {
-      res.status(proxyRes.statusCode || 500);
-      Object.keys(proxyRes.headers).forEach(key => {
-        const lowerKey = key.toLowerCase();
-        if (['transfer-encoding', 'connection', 'keep-alive', 'content-length'].includes(lowerKey)) {
-          return; // Node HTTP handles hop-by-hop headers automatically
-        }
-        const value = proxyRes.headers[key];
-        if (value !== undefined) {
-          res.setHeader(key, value);
-        }
-      });
-
-      // Direct piping with explicit end
-      proxyRes.pipe(res, { end: true });
+    // If we get here, proxyMCPRequest returned { handled: false }, meaning
+    // transport.usesPort() === true — the server listens on its own port.
+    // Return the SSE endpoint for clients to connect to directly.
+    return res.status(501).json({
+      error: "Server uses SSE transport. Connect directly via SSE at http://localhost:" + server.port + "/sse",
     });
-
-    proxyReq.on("error", (err) => {
-      logger.error({ server: serverId, error: err.message }, "Proxy request error");
-      if (!res.headersSent) {
-        res.status(502).json({ error: "Bad gateway" });
-      }
-    });
-
-    proxyReq.on("timeout", () => {
-      logger.error({ server: serverId }, "Proxy request timeout");
-      proxyReq.destroy();
-      if (!res.headersSent) {
-        res.status(504).json({ error: "Gateway timeout" });
-      }
-    });
-
-    // Handle response errors
-    res.on('error', (err) => {
-      logger.error({ server: serverId, error: err.message }, "Response error");
-      proxyReq.destroy();
-    });
-
-    // Send body if present
-    if (bodyData) {
-      proxyReq.write(bodyData);
-    }
-    proxyReq.end();
   });
 
   return router;
