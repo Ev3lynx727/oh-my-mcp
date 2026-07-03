@@ -17,12 +17,19 @@ All contributions target **develop**. Maintainer cherry-picks only source commit
 | File a bug | `main` (tagged issue, no branch needed) |
 | Urgent hotfix | `main` ➜ hotfix branch ➜ merge to `main` + cherry-pick to `develop` |
 
+## Reporting Vulnerabilities
+
+Security issues are handled privately. See [SECURITY.md](./SECURITY.md) for the full disclosure process and contact.
+
+Report general bugs via GitHub Issues: [github.com/Ev3lynx727/oh-my-mcp/issues](https://github.com/Ev3lynx727/oh-my-mcp/issues)
+
 ## Getting Started
 
 ```bash
 git clone https://github.com/Ev3lynx727/oh-my-mcp.git
 cd oh-my-mcp
 npm install
+npm run build
 ```
 
 ## Running Tests
@@ -61,6 +68,22 @@ All tests must pass before submitting a PR.
 ## Architecture Decisions
 
 If you're planning a significant change, open an issue first. Key decisions documented in `docs/` and `CE.md` (develop-only).
+
+## Community
+
+- **Issues**: [github.com/Ev3lynx727/oh-my-mcp/issues](https://github.com/Ev3lynx727/oh-my-mcp/issues)
+- **Discussions**: [github.com/Ev3lynx727/oh-my-mcp/discussions](https://github.com/Ev3lynx727/oh-my-mcp/discussions)
+
+## Git Identity
+
+Before pushing commits, verify Git is configured with an email GitHub can associate with your account:
+
+```bash
+git config user.name
+git config user.email
+```
+
+Avoid placeholder values like `your@email.com`.
 
 ## License
 
