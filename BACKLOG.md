@@ -52,30 +52,29 @@
 | 7 | Register ark-* servers in oh-my-mcp config | ✅ | Done | ark-exec/ark-memory/ark-resolve/mempalace registered in config.yaml | Services accessible through single HTTP gateway endpoint | Added to prod config.yaml, 4 servers running on ports 8101-8104 |
 | 8 | Cross-VM gateway for Windows MCP clients | ✅ | Done — WSL→Windows gateway operational | oh-my-mcp listens on `*:8080`; Windows clients connect via SSE through supergateway | Windows OpenCode talks to all 4 ark-* via gateway | Auth boundary (bearer token) + auto-generate + per-client CLIENT_TAG isolation |
 
-## Phase 4: Observability & Quality (⬜ Not Started)
+## Phase 4: Observability & Quality (🟡 In Progress)
 
 | # | Item | Status | Root Cause | Why | What's the Matter | Description |
 |---|------|--------|------------|-----|-------------------|-------------|
 | 9 | Dockerfile | ⬜ | Docs exist, no build artifact committed | Containerized deployment | Deployments require manual Node setup | Create multi-stage Dockerfile with dist/ + node_modules |
 | 10 | Remove dead deps | ✅ | http-proxy-middleware and nanoid unused | Clean package.json | Dead deps = false signal for security audits | `npm uninstall http-proxy-middleware nanoid` |
-| 11 | Config reload health verification | ⬜ | ReloadController doesn't verify restarted servers | Catch failed restarts quickly | Silent failures after config reload | Add health check after restart/reload operations |
+| 11 | Config reload health verification | ✅ | ReloadController now verifies via healthCheck with 3 retries/500ms | Catch failed restarts quickly | Silent failures after config reload | verifyServerHealth() after every start/restart in all strategies |
 | 12 | Request/response caching | ✅ | tools/list, resources/list, prompts/list hit backend every call | Idempotent list responses don't change between calls | Unnecessary round-trips to backend MCP servers | In-memory TTL cache in proxyMCPRequest; per-server cacheTtl in config.yaml (default 60s); evicts on server stop |
 
 ## Phase 5: Roadmap (⬜ Not Started)
 
 | # | Item | Status | Root Cause | Why | What's the Matter | Description |
 |---|------|--------|------------|-----|-------------------|-------------|
-| 12 | WebSocket streaming | ⬜ | SSE endpoint exists, no WS | Real-time bidirectional communication | SSE unidirectional | Add WS upgrade support to gateway |
-| 13 | OAuth2 / JWT auth | ⬜ | Bearer token only | Enterprise auth requirements | Token-only limits deployment scenarios | Add pluggable auth strategies |
-| 14 | React management UI | ⬜ | API-only | Visual server management | CLI-only management | Build thin dashboard |
+| 13 | WebSocket streaming | ⬜ | SSE endpoint exists, no WS | Real-time bidirectional communication | SSE unidirectional | Add WS upgrade support to gateway |
+| 14 | OAuth2 / JWT auth | ⬜ | Bearer token only | Enterprise auth requirements | Token-only limits deployment scenarios | Add pluggable auth strategies |
+| 15 | React management UI | ⬜ | API-only | Visual server management | CLI-only management | Build thin dashboard |
 
 ## Known Issues
 
 | # | Issue | Impact | Workaround |
 |---|-------|--------|------------|
-| 1 | Config reload doesn't verify server health | Silent failures after hot-reload | Manually check /health endpoint |
-| 2 | Gateway 60s hard timeout | Long-running MCP operations may be cut | Increase gateway timeout in config |
-| 3 | Graceful shutdown 10s hard limit | Some servers may not clean up in time | Configure shorter server timeouts |
+| 1 | Gateway 60s hard timeout | Long-running MCP operations may be cut | Increase gateway timeout in config |
+| 2 | Graceful shutdown 10s hard limit | Some servers may not clean up in time | Configure shorter server timeouts |
 
 ## Notes
 
