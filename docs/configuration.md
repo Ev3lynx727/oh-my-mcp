@@ -20,19 +20,21 @@ oh-my-mcp supports YAML configuration files. The default configuration file is `
 
 ```yaml
 auth:
-  # Single token
-  token: "your-secret-token"
-  
-  # Or multiple tokens
-  tokens:
-    - "token-1"
-    - "token-2"
+  # Auto-generate token on first run (saves to ~/.config/oh-my-mcp/auth-token)
+  autoGenerate: true
+
+  # Or static tokens:
+  # token: "your-secret-token"
+  # tokens:
+  #   - "token-1"
+  #   - "token-2"
 ```
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `auth.token` | string | Single bearer token |
 | `auth.tokens` | array | Multiple bearer tokens |
+| `auth.autoGenerate` | bool | Auto-generate token on first run (file persists across restarts) |
 
 ### Server Configuration
 

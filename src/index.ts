@@ -56,15 +56,19 @@ async function main() {
     process.exit(1);
   }
 
-  // Auto-generate auth token if tokens is empty
+  // Auto-generate auth token if auth.autoGenerate is true
   config.auth = await ensureAuthToken(config.auth);
   const tokenFile = join(homedir(), ".config", "oh-my-mcp", "auth-token");
 
   initLogger(config.logLevel || "info");
   const logger = getLogger();
 
-  if (config.auth?.tokens?.length && existsSync(tokenFile)) {
-    logger.info({ tokenFile }, "Auth token loaded from file");
+  if (config.auth?.autoGenerate) {
+    if (existsSync(tokenFile)) {
+      logger.info({ tokenFile }, "Auth token loaded from file");
+    } else {
+      logger.info({ tokenFile }, "Auth token generated — copy from file");
+    }
   }
 
   logger.info({

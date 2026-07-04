@@ -6,7 +6,7 @@ import { randomBytes } from "crypto";
 import { join } from "path";
 
 export async function ensureAuthToken(auth?: AuthConfig): Promise<AuthConfig | undefined> {
-  if (!auth || (auth.tokens && auth.tokens.length > 0) || auth.token) {
+  if (!auth || !auth.autoGenerate || (auth.tokens && auth.tokens.length > 0) || auth.token) {
     return auth;
   }
   const dir = join(homedir(), ".config", "oh-my-mcp");
@@ -43,6 +43,7 @@ export const ServerConfigSchema = z.object({
 export const AuthConfigSchema = z.object({
   token: z.string().optional(),
   tokens: z.array(z.string()).optional(),
+  autoGenerate: z.boolean().optional(),
 });
 
 export const ConfigSchema = z.object({
