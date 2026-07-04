@@ -31,6 +31,7 @@ export const ServerConfigSchema = z.object({
   port: z.number().optional(),
   enabled: z.boolean().optional().default(true),
   transport: z.enum(["supergateway", "stdio"]).optional().default("supergateway"),
+  cacheTtl: z.number().nonnegative().optional(),
   healthCheck: z
     .object({
       interval: z.number().optional().default(30000),
