@@ -53,7 +53,7 @@ servers:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `command` | array | required | Command to run (passed to npx) |
+| `command` | array | required | Command to run (wrapped by supergateway) |
 | `env` | object | {} | Environment variables |
 | `timeout` | number | 60000 | Health check timeout in ms |
 | `port` | number | auto | Fixed port (optional) |

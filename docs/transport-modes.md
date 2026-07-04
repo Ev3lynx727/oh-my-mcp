@@ -6,7 +6,7 @@ oh-my-mcp supports two transport modes for communicating with MCP server child p
 
 | Aspect | supergateway | DirectStdioTransport |
 |--------|-------------|---------------------|
-| Bridge process | Yes — `npx supergateway` wraps stdio→HTTP/SSE | No — writes JSON-RPC directly to child stdin |
+| Bridge process | Yes — `node <sg-path>/supergateway` wraps stdio→HTTP/SSE | No — writes JSON-RPC directly to child stdin |
 | HTTP port | Allocated (default 8100+) | 0 (no HTTP port) |
 | Request latency | ~+2ms per hop (TCP + serialize) | ~4ms local |
 | Remote client support | ✅ Windows→WSL, LAN, VPS | ❌ stdio cannot cross machine boundary |

@@ -125,17 +125,19 @@ The system implements intelligent auto-restart for servers that crash unexpected
 
 The ProcessManager class is responsible exclusively for spawning and managing operating system processes. It maintains a Map of running process handles indexed by server ID and provides methods to start, stop, and query process status. This narrow focus makes the ProcessManager easy to test and maintain.
 
-When starting a server, the ProcessManager resolves environment variables from the configuration, merging them with the current process environment. It uses npx to execute the supergateway, which in turn manages the MCP server process. The stdio command and arguments are passed through to supergateway, which handles the stdio communication with the actual MCP server.
+When starting a supergateway-mode server, the ProcessManager resolves environment variables from the configuration, merging them with the current process environment. It spawns `node <supergateway-path>/dist/index.js` as a child process, passing the server command and port arguments. supergateway bridges HTTP/SSE to the server's stdio. For stdio-mode servers, the server command runs directly without supergateway.
 
 ### 3.2 Process Lifecycle
 
 ```typescript
-// Starting a process
-const child = spawn("npx", [
-  "-y", "supergateway",
+// Starting a supergateway process
+const sgPath = new URL("../../node_modules/supergateway/dist/index.js", import.meta.url).pathname;
+const child = spawn("node", [
+  sgPath,
   "--stdio", stdioCmd,
-  "--outputTransport", "streamableHttp",
-  "--port", port.toString()
+  "--outputTransport", "sse",
+  "--port", port.toString(),
+  "--healthEndpoint", "/healthz",
 ], { env: mergedEnv });
 
 // Handling stdout/stderr

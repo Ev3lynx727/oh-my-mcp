@@ -81,7 +81,7 @@ src/
 
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Transport | supergateway (HTTP/SSE) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients (Windows, LAN, VPS); DirectStdioTransport for local servers (~0.5ms faster per request, one less process). |
+| Transport | supergateway (HTTP/SSE) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients; DirectStdioTransport for local servers (~4ms, one less process). |
 | Two apps | Management (8080) + Gateway (8090) | Gateway proxies stdio transport servers (ark-*) via JSON-RPC over stdin/stdout. Returns 501 for supergateway-mode servers — clients connect to SSE ports directly. |
 | Domain model | MCPServer state machine | Pure domain with enforced state transitions (STOPPED→STARTING→RUNNING→STOPPING→ERROR). Testable without spawning processes. |
 | DI | Manual container (70 lines) | No decorators/reflection. Avoids tsyringe/inversify dependency. |
@@ -109,7 +109,7 @@ Client request
 Server lifecycle
   config.servers.*.enabled !== false
   -> PortAllocator.allocate() (default: 8100+)
-  -> spawn("npx -y supergateway --stdio <cmd> --outputTransport streamableHttp --port N")
+  -> spawn("node", ["<path>/supergateway/dist/index.js", "--stdio", "<cmd>", "--outputTransport", "sse", "--port", String(N)])
   -> SuperGatewayTransport.isReady() -> polling tools/list initialize
   -> server.markRunning(port, child)
   -> HealthChecker runs periodic tools/list probe
@@ -153,7 +153,7 @@ Config (YAML):
 
 ## Critical Constraints
 
-- **supergateway via npx** — ProcessManager runs `npx -y supergateway` as child process, not import. `supergateway` is a pinned dependency for offline installs; runtime also forces `npx -y` to always get latest.
+- **supergateway via node** — ProcessManager spawns `node <path>/supergateway/dist/index.js` from the installed package. Uses local `node_modules/` path resolved via `import.meta.url`. Pinned dependency in package.json.
 - **DirectStdioTransport** — fully implemented. Servers with `transport: stdio` in config use native JSON-RPC over stdin/stdout, skipping supergateway entirely.
 - **Port range 8100+** — auto ports start at 8100. Manual ports bypass allocator but tracked for conflict.
 - **Health stale at 2x interval** — `canAcceptRequests()` uses 2x configured interval as staleness threshold.
@@ -202,7 +202,7 @@ Deprecated items identified and resolved:
 | File | Purpose |
 |------|---------|
 | `src/gateway.ts` | Proxy logic, SSE passthrough edge cases |
-| `src/application/ProcessManager.ts` | Spawn args, DirectStdioTransport will change this |
+| `src/application/ProcessManager.ts` | DirectStdioTransport edge cases |
 | `src/infrastructure/transports/DirectStdioTransport.ts` | Edge cases: large payloads, multi-line JSON, process restart |
 | `src/infrastructure/transports/SuperGatewayTransport.ts` | SSE response parsing (fragile for non-SSE) |
 | `src/server_manager.ts` | Bridge pattern (legacy→domain→legacy), reduce when migration complete |

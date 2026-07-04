@@ -83,7 +83,7 @@ Response:
 curl -H "Authorization: Bearer my-secret-token" http://localhost:8080/servers/memory/health
 ```
 
-### Test MCP Gateway
+### Test MCP Gateway (for stdio transport servers)
 
 ```bash
 curl -X POST \
@@ -93,6 +93,8 @@ curl -X POST \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' \
   http://localhost:8090/mcp/memory
 ```
+
+For supergateway servers, the gateway returns **501** — connect to the server's SSE port directly: `http://localhost:8100/mcp`.
 
 ## Step 5: Add More Servers
 

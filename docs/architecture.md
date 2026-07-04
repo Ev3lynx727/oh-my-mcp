@@ -47,7 +47,7 @@ Pure business logic and state, free of infrastructure concerns.
 
 - **`Server.ts`**: `MCPServer` class holds identity, configuration, runtime state (status, port, health, error, timestamps). Methods mutate state and emit events.
 - **`ServerStatus.ts`**: TypeScript enum for server lifecycle (`STOPPED`, `STARTING`, `RUNNING`, `ERROR`, `STOPPING`).
-- **`Transport.ts`**: Interface `ServerTransport` for communication with a running MCP server. Implementations: `SuperGatewayTransport` (HTTP), `DirectStdioTransport` (stub).
+- **`Transport.ts`**: Interface `ServerTransport` for communication with a running MCP server. Implementations: `SuperGatewayTransport` (HTTP), `DirectStdioTransport` (stdio).
 
 ### 2. Application Layer (`src/application/`)
 
@@ -69,7 +69,7 @@ External concerns: HTTP, config loading, logging, metrics, transports.
 - **`http/HttpClient.ts`**: Thin wrapper around `fetch` with retry/timeout (future).
 - **`transports/`**:
   - `SuperGatewayTransport.ts`: Communicates with server via HTTP (supergateway).
-  - `DirectStdioTransport.ts`: Stub for future stdio.
+  - `DirectStdioTransport.ts`: Native JSON-RPC over stdin/stdout.
   - `TransportFactory.ts`: Creates transports based on config.
 - **`metrics/`**:
   - `metrics.ts`: `AppMetrics` singleton with Prometheus metrics.
@@ -185,7 +185,7 @@ Validation: `ConfigSchema` (Zod) enforces types and defaults.
 - **Rate Limiting**: Management (100/min per IP), Gateway (1000/min per token).
 - **Health**: `GET /health` returns `{ status: "ok", servers: N }`.
 
-See `docs/observation.md` for details.
+
 
 ---
 
@@ -219,7 +219,6 @@ See `docs/observation.md` for details.
 ## Future Directions
 
 - Make transport spawn behavior configurable (remove supergateway hardcoding).
-- Implement `DirectStdioTransport` for native stdio MCP servers.
 - Add distributed rate limiting (Redis-backed) for multi-replica deployments.
 - Provide a React UI for management and logs.
 - Add OAuth2 and JWT-based auth.

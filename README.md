@@ -16,7 +16,7 @@ oh-my-mcp is a gateway and process manager for [Model Context Protocol](https://
   - Rate limiting (per-IP management, per-token gateway)
   - Request timeouts (60s gateway, 120s management)
 - **Configuration as code**: YAML config with hot-reload; Zod validation.
-- **Transport abstraction**: currently HTTP via supergateway; stdio transport planned.
+- **Transport abstraction**: supergateway (HTTP/SSE) and stdio (native JSON-RPC).
 - **Docker & Kubernetes ready**: deploy with included guides.
 
 ---
@@ -132,7 +132,7 @@ curl -X POST http://localhost:8090/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
 ```
 
-Response is passed through from the backend server.
+Response is passed through from the backend server. For servers using supergateway transport (dedicated port), the gateway returns **501** — clients connect to the server's SSE endpoint directly.
 
 ---
 
@@ -147,7 +147,7 @@ Response is passed through from the backend server.
 - **Health**: `GET /health` for overall; per-server: `GET /servers/:id/health` (future).
 - **Rate limiting**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `Retry-After` headers.
 
-Full guide: `docs/observation.md`.
+
 
 ---
 
@@ -193,7 +193,6 @@ Architecture overview: `docs/architecture.md`.
 
 ## Roadmap
 
-- `DirectStdioTransport` for native stdio MCP servers
 - Distributed rate limiting (Redis)
 - OAuth2 / JWT authentication
 - React management UI

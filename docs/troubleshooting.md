@@ -253,7 +253,7 @@ This guide helps diagnose common issues with oh-my-mcp.
 ## Known Limitations
 
 - Rate limiting is in-memory; replicas do not share state.
-- Transport for direct stdio MCP servers not implemented (DirectStdioTransport stub).
+- Transport for direct stdio MCP servers: verified working (DirectStdioTransport).
 - No built-in UI (management is via API only).
 - Config reloading via file watch is implemented but stateful changes (port allocation) may not be perfectly cleaned; a full restart recommended after major config changes.
 

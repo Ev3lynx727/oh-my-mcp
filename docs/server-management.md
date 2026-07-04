@@ -4,7 +4,7 @@ Guide to managing MCP servers in oh-my-mcp.
 
 ## Overview
 
-oh-my-mcp manages MCP servers by spawning supergateway processes. Each server runs in its own isolated process, bridged to HTTP via supergateway.
+oh-my-mcp manages MCP servers as child processes. Servers with `transport: supergateway` run via supergateway (HTTP/SSE bridge). Servers with `transport: stdio` run directly via DirectStdioTransport (native JSON-RPC over stdin/stdout).
 
 ## Server States
 
