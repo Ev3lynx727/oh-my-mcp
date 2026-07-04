@@ -129,7 +129,7 @@ See `docs/transport-modes.md` for full latency benchmarks, serialization analysi
 ## Key Types
 
 ```
-ServerConfig { id, command[], env, timeout, port?, enabled, transport, healthCheck? }
+ServerConfig { id, command[], env, timeout, port?, enabled, transport, cacheTtl?, healthCheck? }
 ServerState  { status: ServerStatus, port, process?, error?, startedAt?, health? }
 ServerStatus enum { STOPPED, STARTING, RUNNING, STOPPING, ERROR }
 
@@ -147,7 +147,7 @@ ServerTransport interface:
 
 Config (YAML):
   servers: Record<id, ServerConfig>
-  auth: { tokens?: string[], enabled: boolean }
+  auth: { tokens?: string[], enabled: boolean, autoGenerate?: boolean }
   managementPort/gatewayPort/logLevel/compression
 ```
 
@@ -159,6 +159,7 @@ Config (YAML):
 - **Health stale at 2x interval** — `canAcceptRequests()` uses 2x configured interval as staleness threshold.
 - **Shutdown hard limit 10s** — after SIGTERM/SIGINT, servers get 10s then process.exit(0).
 - **Gateway timeout 60s** — hardcoded in http.request options and timeout middleware.
+- **Cache TTL 60s default** — `proxyMCPRequest` caches `tools/list`, `resources/list`, `prompts/list` responses by server id. Per-server `cacheTtl` in config.yaml. Evicted on server stop/restart. Cache partitioned by server id only — not by request arguments (list methods are argument-free).
 - **No WS streaming** — roadmap item. Current SSE via polling.
 - **No Dockerfile committed** — Docker/K8s docs exist but no build artifact.
 
@@ -178,6 +179,9 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 - DirectStdioTransport — **done** (5 integration tests passing)
 - Runtime server registration (POST/DELETE /servers/:id) — **done** (persists across restarts)
 - Gateway stdio dispatch (proxyMCPRequest) — **done** (full HTTP→stdio→child→response loop)
+- Request/response caching (tools/list, resources/list, prompts/list) — **done** (in-memory TTL, per-server cacheTtl)
+- Auth auto-generate — **done** (64-char hex token persisted to ~/.config/oh-my-mcp/auth-token, survive restarts)
+- Per-client log/cache isolation (CLIENT_TAG) — **done** (ark-exec partitioned by wsl/windows/unknown)
 - Dockerfile — **not committed**
 - WebSocket / OAuth2 / React UI — **roadmap**
 
@@ -196,6 +200,16 @@ Deprecated items identified and resolved:
 ## Recent Changes (v1.0.1 → v1.0.2-pre)
 
 5 commits after npm v1.0.1: complete architectural refactor. Flat Express app → domain-driven layered architecture with DI, hot-reload, CLI, transport abstraction, comprehensive middleware. ~3x source code.
+
+Post-refactor additions (develop-only, not in any npm release):
+
+| Commit | Feature | Files |
+|--------|---------|-------|
+| d24efc5 | Auth auto-generate (64-char hex token persisted to file) | config.ts, index.ts |
+| 1569aca | Auth config split: enabled vs autoGenerate independently | config.ts, index.ts |
+| e46f43a | Per-client log/cache isolation via CLIENT_TAG | ark-exec server.ts, schemas.ts |
+| cb19716 | Per-client directory isolation (wsl/windows/unknown) | ark-exec server.ts |
+| 701411e | Request/response caching (tools/list, resources/list, prompts/list) | config.ts, server_manager.ts |
 
 ## Files to Edit
 
