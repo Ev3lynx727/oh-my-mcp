@@ -1,5 +1,7 @@
 # Quick Start Guide
 
+**Bare-metal first.** oh-my-mcp is designed to run on your local machine (WSL, Linux desktop, server) — not in the cloud. Backend MCP servers (ark-*, etc.) run as child processes managed by oh-my-mcp. External clients on the same LAN connect via SSE.
+
 Get oh-my-mcp running in 5 minutes.
 
 ## Step 1: Install

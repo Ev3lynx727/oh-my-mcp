@@ -2,6 +2,8 @@
 
 ## Identity
 
+**Bare-metal first.** All backends (ark-*, MCP servers) run on WSL as systemd user services. Zero cloud dependencies. External clients (Windows OpenCode, Claude Desktop, Cursor, Windsurf) connect via SSE or HTTP.
+
 HTTP MCP gateway + process manager. Spawns stdio MCP servers via supergateway (SSE output on port 8100+) or DirectStdioTransport (native JSON-RPC over stdin/stdout). Manages child process lifecycle. Exposes management API (port 8080) and optional gateway (port 8090). Remote clients connect directly to supergateway SSE ports. For Claude Desktop, Cursor, Windsurf sharing the same MCP server pool.
 
 `@ev3lynx/oh-my-mcp` v1.0.2-pre — MIT, TypeScript, Node >=18.
