@@ -40,3 +40,27 @@ servers:
       - "@modelcontextprotocol/server-web-search"
     timeout: 120000
     enabled: true
+
+  ark-exec:
+    command:
+      - "node"
+      - "/home/ev3lynx/server/ark-exec/dist/index.js"
+    timeout: 30000
+    enabled: true
+    transport: stdio
+  
+  ark-memory:
+    command:
+      - "node"
+      - "/home/ev3lynx/server/ark-memory/dist/index.js"
+    timeout: 30000
+    enabled: true
+    transport: stdio
+  
+  ark-resolve:
+    command:
+      - "node"
+      - "/home/ev3lynx/server/ark-resolve/dist/index.js"
+    timeout: 30000
+    enabled: true
+    transport: stdio
