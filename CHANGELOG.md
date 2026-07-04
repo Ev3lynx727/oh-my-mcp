@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-04
+
+Published on npm: [`@ev3lynx/oh-my-mcp`][1.1.1-npm]
+
+### Fixed
+
+- **npm install failure on consumer machines**: Moved supergateway SSE reconnection patch from `postinstall` to `prepare` lifecycle hook. `postinstall` runs when the package is installed as a dependency, but `patches/` isn't in the npm tarball — causing `npm install @ev3lynx/oh-my-mcp` to fail with "cannot open patches/supergateway+3.4.3.patch". `prepare` runs on local dev install and CI but NOT when consumed as a dependency — the correct lifecycle for an internal dev concern.
+
 ## [1.1.0] - 2026-07-04
 
 Published on npm: [`@ev3lynx/oh-my-mcp`][1.1.0-npm]
@@ -64,6 +72,8 @@ Published on npm: [`@ev3lynx/oh-my-mcp`][1.1.0-npm]
 
 Initial release of oh-my-mcp. Provides basic MCP server management and HTTP gateway.
 
+[1.1.1]: https://github.com/Ev3lynx727/oh-my-mcp/releases/tag/v1.1.1
+[1.1.1-npm]: https://www.npmjs.com/package/@ev3lynx/oh-my-mcp/v/1.1.1
 [1.1.0]: https://github.com/Ev3lynx727/oh-my-mcp/releases/tag/v1.1.0
 [1.1.0-npm]: https://www.npmjs.com/package/@ev3lynx/oh-my-mcp/v/1.1.0
 [1.0.1]: https://github.com/Ev3lynx727/oh-my-mcp/releases/tag/v1.0.1
