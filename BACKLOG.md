@@ -36,16 +36,16 @@
 | 1 | Implement DirectStdioTransport | ✅ | Stub — all methods throw | All servers currently require supergateway; no native MCP stdio support | Every MCP server needs supergateway bridge | Implement JSON-RPC over stdio: initialize, tools/list, sendRequest via stdin/stdout |
 | 2 | Merge DirectStdioTransport with ProcessManager | ✅ | ProcessManager hardcoded for supergateway spawn args | TransportFactory needs to choose supergateway vs stdio per server config | Supergateway-only deployment | Branch ProcessManager.startServer on transport type |
 
-## Phase 2: npm Publishing (⬜ Not Started)
+## Phase 2: npm Publishing (✅ Done)
 
 | # | Item | Status | Root Cause | Why | What's the Matter | Description |
 |---|------|--------|------------|-----|-------------------|-------------|
-| 3 | Publish `@ev3lynx/oh-my-mcp` v1.0.2-pre | 🔴 | npm token expired (401) | Published v1.0.1 lacks hot-reload, domain layer, CLI, middleware | Users on v1.0.1 missing 5 major commits | Regenerate npm token, publish v1.0.2 from develop |
-| 4 | Publish `@oh-my-mcp/ark-exec` | 🔴 | npm token expired — org scope not yet used | Clean scope for ark suite separate from @ev3lynx | ark-* tools need independent home | Create packages under @oh-my-mcp scope, publish after token fix |
-| 5 | Publish `@oh-my-mcp/ark-memory` | 🔴 | npm token expired | Same | Same | Same |
-| 6 | Publish `@oh-my-mcp/ark-resolve` | 🔴 | npm token expired | Same | Same | Same |
+| 3 | Publish `@ev3lynx/oh-my-mcp` v1.1.0 | ✅ | npm token | Published v1.1.0 from main with auth, caching, hot-reload, health verification | All Phase 1-4 features now available on npm | Published as [`@ev3lynx/oh-my-mcp`](https://www.npmjs.com/package/@ev3lynx/oh-my-mcp) v1.1.0 — 30+ commits since v1.0.1 |
+| 4 | Publish `@oh-my-mcp/ark-exec` | ⬜ | Scope not created | Clean scope for ark suite | Future scope | Deferred — scope creation + org membership needed |
+| 5 | Publish `@oh-my-mcp/ark-memory` | ⬜ | Same | Same | Same | Deferred |
+| 6 | Publish `@oh-my-mcp/ark-resolve` | ⬜ | Same | Same | Same | Deferred |
 
-## Phase 3: Gateway Integration (⬜ Not Started)
+## Phase 3: Gateway Integration (✅ Done)
 
 | # | Item | Status | Root Cause | Why | What's the Matter | Description |
 |---|------|--------|------------|-----|-------------------|-------------|
@@ -79,7 +79,7 @@
 ## Notes
 
 - BACKLOG.md lives on **develop** only — never cherry-picked to main
-- All statuses reflect oh-my-mcp v1.0.2-pre state as of 2026-07-04
+- All statuses reflect oh-my-mcp v1.1.0 state as of 2026-07-04
 - Dependency effect % = files referencing dep / total source files (40 src/ files scanned)
 
 ---

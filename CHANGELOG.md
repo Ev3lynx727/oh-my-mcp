@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2026-07-04
 
+Published on npm: [`@ev3lynx/oh-my-mcp`][1.1.0-npm]
+
 ### Added
 
 - **Config reload health verification**: ReloadController now verifies server health after every start/restart with 3 retries/500ms in all strategies (immediate/graceful/rolling). (#11)
@@ -63,5 +65,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Initial release of oh-my-mcp. Provides basic MCP server management and HTTP gateway.
 
 [1.1.0]: https://github.com/Ev3lynx727/oh-my-mcp/releases/tag/v1.1.0
+[1.1.0-npm]: https://www.npmjs.com/package/@ev3lynx/oh-my-mcp/v/1.1.0
 [1.0.1]: https://github.com/Ev3lynx727/oh-my-mcp/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Ev3lynx727/oh-my-mcp/releases/tag/v1.0.0
