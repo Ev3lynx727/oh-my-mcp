@@ -1,4 +1,28 @@
 import { z } from "zod";
+import { mkdir, readFile, writeFile } from "fs/promises";
+import { existsSync } from "fs";
+import { homedir } from "os";
+import { randomBytes } from "crypto";
+import { join } from "path";
+
+export async function ensureAuthToken(auth?: AuthConfig): Promise<AuthConfig | undefined> {
+  if (!auth || (auth.tokens && auth.tokens.length > 0) || auth.token) {
+    return auth;
+  }
+  const dir = join(homedir(), ".config", "oh-my-mcp");
+  const filePath = join(dir, "auth-token");
+  if (!existsSync(dir)) {
+    await mkdir(dir, { recursive: true });
+  }
+  let token: string;
+  if (existsSync(filePath)) {
+    token = (await readFile(filePath, "utf-8")).trim();
+  } else {
+    token = randomBytes(32).toString("hex");
+    await writeFile(filePath, token, "utf-8");
+  }
+  return { tokens: [token] };
+}
 
 export const ServerConfigSchema = z.object({
   command: z.array(z.string()),

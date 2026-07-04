@@ -1,4 +1,7 @@
 import express from "express";
+import { homedir } from "os";
+import { existsSync } from "fs";
+import { join } from "path";
 import { loadConfig, watchConfig, shutdownWatcher, loadRuntimeServers } from "./config_loader.js";
 import { initLogger, getLogger } from "./logger.js";
 import { Container } from "./di/container.js";
@@ -19,6 +22,7 @@ import { requestResponseLogging } from "./middleware/logging.js";
 import { parseCliArgs, showHelp, showVersion } from "./cli/schemas.js";
 import { diffServerConfigs, shouldRestartServer, reloadServersWithStrategy, ConfigValidator } from "./infrastructure/config/index.js";
 import { getConfig } from "./config_loader.js";
+import { ensureAuthToken } from "./config.js";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -52,8 +56,16 @@ async function main() {
     process.exit(1);
   }
 
+  // Auto-generate auth token if tokens is empty
+  config.auth = await ensureAuthToken(config.auth);
+  const tokenFile = join(homedir(), ".config", "oh-my-mcp", "auth-token");
+
   initLogger(config.logLevel || "info");
   const logger = getLogger();
+
+  if (config.auth?.tokens?.length && existsSync(tokenFile)) {
+    logger.info({ tokenFile }, "Auth token loaded from file");
+  }
 
   logger.info({
     managementPort: config.managementPort,
