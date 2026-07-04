@@ -1,8 +1,8 @@
 # oh-my-mcp
 
-> Manage MCP servers and proxy JSON-RPC over HTTP
+> Native MCP gateway with management layer — stdio and supergateway transports
 
-oh-my-mcp is a gateway and process manager for [Model Context Protocol](https://github.com/modelcontextprotocol/spec) servers. It starts MCP servers (via supergateway), monitors their health, and exposes a unified HTTP API for clients like Claude Desktop, Cursor, and Windsurf.
+oh-my-mcp is a gateway and process manager for [Model Context Protocol](https://github.com/modelcontextprotocol/spec) servers. It starts MCP servers (via supergateway or native stdio transport), monitors their health, and exposes a unified HTTP API for clients like Claude Desktop, Cursor, Windsurf, and OpenCode.
 
 ---
 
@@ -17,7 +17,7 @@ oh-my-mcp is a gateway and process manager for [Model Context Protocol](https://
   - Request timeouts (60s gateway, 120s management)
 - **Configuration as code**: YAML config with hot-reload; Zod validation.
 - **Transport abstraction**: supergateway (HTTP/SSE) and stdio (native JSON-RPC).
-- **Docker & Kubernetes ready**: deploy with included guides.
+- **Auth system**: Bearer token authentication with auto-generated token support.
 
 ---
 
@@ -51,13 +51,19 @@ Comprehensive guides for advanced usage, deployment, and integration:
 
 | Guide | Purpose |
 |-------|---------|
-| **[USAGE.md](USAGE.md)** | Detailed usage examples, API reference, Docker, Kubernetes, OpenClaw, CI/CD |
-| **[SETUP.md](docs/SETUP.md)** | Installation, configuration, security best practices |
-| **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** | Docker, Kubernetes, systemd, production hosting |
-| **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** | System design, modules, extension points |
-| **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** | How to contribute, code style, testing |
-
-Start with **USAGE.md** for practical patterns.
+| **[Installation](docs/installation.md)** | Setup, config, security |
+| **[Quick Start](docs/quickstart.md)** | Get running in 5 minutes |
+| **[Configuration](docs/configuration.md)** | All YAML options explained |
+| **[Transport Modes](docs/transport-modes.md)** | Supergateway vs DirectStdioTransport |
+| **[API Reference](docs/api-reference.md)** | All endpoints with examples |
+| **[Server Management](docs/server-management.md)** | CLI and API server lifecycle |
+| **[Architecture](docs/architecture.md)** | System design and modules |
+| **[Hot Reload](docs/hot-reload.md)** | Config reload strategies |
+| **[Gateway Schema](docs/gateway-schema.md)** | Gateway API wire format |
+| **[Integrations](docs/integrations.md)** | Claude Desktop, Cursor, Windsurf, OpenCode |
+| **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
+| **[Development](docs/development.md)** | Building and testing |
+| **[Contributing](docs/contributing.md)** | PR workflow and conventions |
 
 ---
 
@@ -73,24 +79,21 @@ compression: true
 
 auth:
   enabled: true
+  autoGenerate: false
   tokens:
     - "your-secret-token"
 
 servers:
-  github:
-    command: ["npx", "-y", "@modelcontextprotocol/server-github"]
-    env:
-      GITHUB_TOKEN: "${GH_TOKEN}"
-    timeout: 60000
+  ark-exec:
+    command: ["node", "/path/to/ark-exec/dist/server.js"]
+    cacheTtl: 60000
+    timeout: 30000
     enabled: true
-    transport: "supergateway"
-    healthCheck:
-      interval: 30000
-      timeout: 5000
-      unhealthyThreshold: 3
+    transport: supergateway
+    url: http://localhost:8101/sse
 ```
 
-See `config.example.yaml` for all options.
+See `docs/configuration.md` for all options.
 
 ---
 
@@ -112,13 +115,12 @@ See `config.example.yaml` for all options.
 
 **Authentication**: Include `Authorization: Bearer <token>` if auth enabled.
 
-### Gateway API (port 8090)
+### Gateway API
 
-`POST /mcp` proxies any JSON-RPC request to the selected backend.
+MCP JSON-RPC requests proxy through `POST /mcp/:serverId` on the management API (port 8080).
 
 **Headers**:
 
-- `Server-Id` (optional): which server to route to (default: first enabled)
 - `Authorization: Bearer <token>` (if auth enabled)
 
 **Body**: Standard MCP JSON-RPC 2.0 request.
@@ -126,13 +128,13 @@ See `config.example.yaml` for all options.
 Example:
 
 ```bash
-curl -X POST http://localhost:8090/mcp \
+curl -X POST http://localhost:8080/mcp/ark-exec \
   -H "Authorization: Bearer your-secret-token" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-Response is passed through from the backend server. For servers using supergateway transport (dedicated port), the gateway returns **501** — clients connect to the server's SSE endpoint directly.
+The gateway dispatches via the server's configured transport (DirectStdio or supergateway). Servers using supergateway SSE on a dedicated port can also be connected to directly at their SSE endpoint (e.g. `http://localhost:8101/sse`).
 
 ---
 
@@ -155,18 +157,14 @@ Response is passed through from the backend server. For servers using supergatew
 
 ### Docker
 
+Dockerfile not yet published — tracked in [Phase 4 backlog](https://github.com/Ev3lynx727/oh-my-mcp/blob/develop/BACKLOG.md). For now, run directly:
+
 ```bash
-docker build -t oh-my-mcp .
-docker run -d -p 8080:8080 -p 8090:8090 -v $(pwd)/config.yaml:/app/config.yaml oh-my-mcp
+git clone https://github.com/ev3lynx/oh-my-mcp
+cd oh-my-mcp
+npm ci && npm run build
+node dist/index.js config.yaml
 ```
-
-See `docs/deployment/docker.md`.
-
-### Kubernetes
-
-Manifests provided: `docs/deployment/kubernetes.md`.
-
-Use ConfigMap for config, Secret for tokens, and HPA for scaling.
 
 ---
 
@@ -187,16 +185,14 @@ Project structure:
 - `src/middleware` – Express middleware (timeout, rate-limit, audit, logging, etc.)
 - `src/index.ts` – App bootstrap and wiring
 
-Architecture overview: `docs/architecture.md`.
+Architecture overview: [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
 ## Roadmap
 
-- Distributed rate limiting (Redis)
-- OAuth2 / JWT authentication
+- OAuth2 / JWT pluggable auth
 - React management UI
-- Request/response caching
 - WebSocket streaming support
 - OpenAPI specification
 
@@ -208,7 +204,7 @@ Architecture overview: `docs/architecture.md`.
 
 ## Contributing
 
-See `docs/contributing.md`. We welcome issues and PRs.
+See [`docs/contributing.md`](docs/contributing.md). We welcome issues and PRs.
 
 ---
 
