@@ -7,10 +7,26 @@ auth:
     - "test-token"
 
 servers:
-  memory:
+  ark-exec:
     command:
-      - "npx"
-      - "-y"
-      - "@modelcontextprotocol/server-memory"
+      - "node"
+      - "/home/ev3lynx/server/ark-exec/dist/index.js"
     timeout: 30000
     enabled: true
+    transport: stdio
+  
+  ark-memory:
+    command:
+      - "node"
+      - "/home/ev3lynx/server/ark-memory/dist/index.js"
+    timeout: 30000
+    enabled: true
+    transport: stdio
+  
+  ark-resolve:
+    command:
+      - "node"
+      - "/home/ev3lynx/server/ark-resolve/dist/index.js"
+    timeout: 30000
+    enabled: true
+    transport: stdio

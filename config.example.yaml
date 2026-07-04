@@ -10,13 +10,18 @@ auth:
     - "zn5azlpglew393uh57mj70ez6b7cmgft0251nxm6pxs7y02f1y"  # Your existing token
 
 servers:
+  # --- transport modes ---
+  # "supergateway" (default): wraps stdio server via supergateway bridge → HTTP endpoint
+  # "stdio":       spawns the command directly, gateway proxies JSON-RPC over stdin/stdout
+  #                use for any command that speaks JSON-RPC on stdio natively
+
   # Example: custom transport and health check settings
   # example:
   #   command:
   #     - "npx"
   #     - "-y"
   #     - "@modelcontextprotocol/server-example"
-  #   transport: "supergateway"   # or "stdio" (experimental)
+  #   transport: "supergateway"
   #   healthCheck:
   #     interval: 10000           # check every 10s
   #     timeout: 3000            # health check timeout 3s
@@ -49,15 +54,6 @@ servers:
     timeout: 60000
     enabled: true
 
-  shellcheck:
-    command:
-      - "uvx"
-      - "--from"
-      - "https://github.com/Ev3lynx727/mcp-shellcheck/releases/download/v0.1.2/mcp_shellcheck-0.1.2-py3-none-any.whl"
-      - "shellcheck-mcp-server"
-    timeout: 60000
-    enabled: true
-
   ripgrep:
     command:
       - "npx"
@@ -71,7 +67,7 @@ servers:
       - "npx"
       - "-y"
       - "@modelcontextprotocol/server-filesystem"
-      - "/home/ev3lynx"
+      - "~"
     timeout: 60000
     enabled: true
 
@@ -105,41 +101,6 @@ servers:
   #   headers:
   #     CONTEXT7_API_KEY: "{env:CONTEXT7_API_KEY}"
 
-  ruff:
-    command:
-      - "uvx"
-      - "--from"
-      - "/home/ev3lynx/Project/local-mcp-server/mcp-ruff"
-      - "ruff-mcp-server"
-    timeout: 60000
-    enabled: true
-
-  markdownlint:
-    command:
-      - "uvx"
-      - "--from"
-      - "/home/ev3lynx/Project/local-mcp-server/mcp-markdownlint"
-      - "markdownlint-mcp-server"
-    timeout: 60000
-    enabled: true
-
-  git:
-    command:
-      - "uvx"
-      - "mcp-server-git"
-      - "--repository"
-      - "/home/ev3lynx/Project"
-    timeout: 60000
-    enabled: true
-
-  formatter:
-    command:
-      - "npx"
-      - "-y"
-      - "editorconfig-mcp-server"
-    timeout: 60000
-    enabled: true
-
   playwright:
     command:
       - "npx"
@@ -158,14 +119,6 @@ servers:
     timeout: 60000
     enabled: true
 
-  server-commands:
-    command:
-      - "npx"
-      - "-y"
-      - "mcp-server-commands"
-    timeout: 60000
-    enabled: true
-
   codeguardian:
     command:
       - "npx"
@@ -179,15 +132,6 @@ servers:
       - "npx"
       - "-y"
       - "mcp-deployment-agent"
-    timeout: 120000
-    enabled: true
-
-  local-server-brain:
-    command:
-      - "node"
-      - "/home/ev3lynx/Project/local-server-brain/build/index.js"
-    env:
-      BRAIN_DATA_DIR: "/home/ev3lynx/server-brain"
     timeout: 120000
     enabled: true
 
@@ -223,11 +167,4 @@ servers:
     timeout: 60000
     enabled: true
 
-  gitingest:
-    command:
-      - "uvx"
-      - "--from"
-      - "/home/ev3lynx/Project/local-mcp-server/mcp-gitingest/dist/mcp_gitingest-0.1.0-py3-none-any.whl"
-      - "mcp-gitingest"
-    timeout: 60000
-    enabled: true
+

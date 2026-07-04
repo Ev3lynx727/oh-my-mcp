@@ -4,7 +4,7 @@
  * Run with: npx tsx src/domain/demo.ts
  */
 
-import { MCPServer, ServerStatus, HealthStatus } from './index.js';
+import { MCPServer } from './index.js';
 
 console.log('=== Domain Layer Demo ===\n');
 

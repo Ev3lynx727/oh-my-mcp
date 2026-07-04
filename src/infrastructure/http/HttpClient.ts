@@ -99,7 +99,7 @@ export class HttpClient {
           method,
           headers: {
             "Content-Type": "application/json",
-            Accept: "application/json",
+            Accept: "application/json, text/event-stream",
           },
           body: body ? JSON.stringify(body) : undefined,
           signal: controller.signal,

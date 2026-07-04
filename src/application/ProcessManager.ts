@@ -26,36 +26,56 @@ export class ProcessManager {
     const env = this.resolveEnv(legacyConfig.env || {});
     const mergedEnv = { ...process.env, ...env };
 
-    const stdioCmd = legacyConfig.command.join(" ");
+    const isStdio = server.getTransport() === "stdio";
 
-    const args = [
-      "-y",
-      "supergateway",
-      "--stdio",
-      stdioCmd,
-      "--outputTransport",
-      "streamableHttp",
-      "--port",
-      port.toString(),
-    ];
-
-    logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting server process");
-
-    const child = spawn("npx", args, {
-      env: mergedEnv,
-      stdio: ["pipe", "pipe", "pipe"],
-      shell: true,
-    });
+    let child: ChildProcess;
+    if (isStdio) {
+      const cmd = legacyConfig.command;
+      logger.info({ server: id, command: cmd }, "Starting stdio server process");
+      child = spawn(cmd[0], cmd.slice(1), {
+        env: mergedEnv,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      });
+    } else {
+      const stdioCmd = legacyConfig.command.join(" ");
+      const sgPath = new URL("../../node_modules/supergateway/dist/index.js", import.meta.url).pathname;
+      const args = [
+        sgPath,
+        "--stdio",
+        stdioCmd,
+        "--outputTransport",
+        "sse",
+        "--port",
+        port.toString(),
+        "--healthEndpoint",
+        "/healthz",
+      ];
+      logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting supergateway server process");
+      child = spawn("node", args, {
+        env: mergedEnv,
+        stdio: ["pipe", "pipe", "pipe"],
+        windowsHide: true,
+      });
+    }
 
     this.runningProcesses.set(id, child);
 
+    [child.stdin, child.stdout, child.stderr].forEach(s => s?.on("error", () => {}))
+
     child.stdout?.on("data", (data) => {
-      logger.debug({ server: id, type: "stdout" }, data.toString().trim());
+      const msg = data.toString().trim();
+      try {
+        const parsed = JSON.parse(msg);
+        logger.info({ server: id, type: "stdout", level: parsed.level, log: parsed.msg });
+      } catch {
+        logger.info({ server: id, type: "stdout" }, msg);
+      }
     });
 
     child.stderr?.on("data", (data) => {
       const msg = data.toString().trim();
-      logger.debug({ server: id, type: "stderr" }, msg);
+      logger.info({ server: id, type: "stderr" }, msg);
       // Also emit via ServerManager's log event (handled separately)
     });
 
@@ -104,7 +124,6 @@ export class ProcessManager {
    * @param legacyConfig - Legacy ServerConfig for start
    */
   async restartServer(server: MCPServer, legacyConfig: LegacyServerConfig): Promise<void> {
-    const id = server.id;
     await this.stopServer(server);
     // Small backoff before restart
     await new Promise((resolve) => setTimeout(resolve, 1000));

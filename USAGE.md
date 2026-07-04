@@ -22,7 +22,7 @@ Comprehensive examples and patterns for using `oh-my-mcp` to manage MCP servers.
 
 ## Installation
 
-### From npm (recommended)
+### From npm (once published)
 
 ```bash
 npm install -g @ev3lynx/oh-my-mcp
@@ -138,7 +138,7 @@ servers:
     enabled: true
     port: 8101  # Optional: fixed port
 
-  # Server 3: Custom script (stdio transport coming soon)
+  # Server 3: Custom script (use `transport: stdio` to skip supergateway)
   custom:
     command: ["./custom-server", "--port", "0"]
     transport: "supergateway"
@@ -233,11 +233,11 @@ See [Docker Deployment](#docker-deployment) below.
 
 ## Using with MCP Clients
 
-oh-my-mcp acts as a ** proxy** for MCP servers. You configure your MCP client (Claude Desktop, Cursor, etc.) to point to the gateway instead of individual servers.
+oh-my-mcp proxies MCP JSON-RPC for **stdio** transport servers through the gateway (port 8090). For **supergateway** servers (which have their own HTTP port), clients connect directly to the server's SSE endpoint.
 
 ### Claude Desktop
 
-In `claude_desktop_config.json`:
+For stdio transport servers (proxied through gateway):
 
 ```json
 {
@@ -249,25 +249,27 @@ In `claude_desktop_config.json`:
         "Server-Id": "github",
         "Authorization": "Bearer your-secret-token"
       }
-    },
-    "filesystem": {
-      "command": "http",
-      "url": "http://localhost:8090/mcp",
-      "headers": {
-        "Server-Id": "filesystem"
-      }
     }
   }
 }
 ```
 
-### Cursor
+For supergateway servers (connect directly to SSE port):
 
-Similar JSON config. Consult Cursor docs for exact location.
+```json
+{
+  "mcpServers": {
+    "ark-exec": {
+      "command": "http",
+      "url": "http://localhost:8101/sse"
+    }
+  }
+}
+```
 
-### Windsurf / Other Clients
+### Cursor / Windsurf / Other Clients
 
-Any client that supports HTTP-based MCP (custom `http` transport) can use oh-my-mcp.
+Any client that supports HTTP-based MCP can use oh-my-cp — either through the gateway (stdio servers) or directly via SSE (supergateway servers).
 
 ---
 
@@ -659,7 +661,7 @@ jobs:
 
 ### Publish to npm
 
-(Already configured in this repo's `.github/workflows/npm-publish.yml`)
+(Configured but blocked — requires npm token. Run from a fork with `NPM_TOKEN` set.)
 
 ---
 

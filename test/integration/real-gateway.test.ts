@@ -62,8 +62,12 @@ servers:
       env: { ...process.env, NODE_ENV: 'test' },
     });
 
-    // Wait for the health endpoint to be ready
-    await waitForURL(`http://localhost:${managementPort}/health`, 120000);
+    // Wait for the server to be running (not just health API to be up)
+    await waitForURL(
+      `http://localhost:${managementPort}/servers`,
+      120000,
+      (json) => json.servers?.some((s: any) => s.id === 'everything' && s.status === 'running')
+    );
   });
 
   afterAll(() => {
@@ -79,7 +83,7 @@ servers:
     }
 
     // Cleanup config directory
-    rm(configDir, { recursive: true, force: true }).catch(() => {});
+    rm(configDir, { recursive: true, force: true }).catch(() => { });
   });
 
   it('should report health with servers count', async () => {
@@ -100,49 +104,20 @@ servers:
     expect(everything.port).toBeGreaterThan(0);
   });
 
-  it('should proxy tools/list request through gateway', async () => {
+  it('gateway returns 501 for supergateway-transport servers', async () => {
+    // Gateway only proxies stdio transport. Supergateway servers have their own HTTP endpoint.
     const body = {
       jsonrpc: '2.0',
       id: 1,
       method: 'tools/list',
       params: {},
     };
-    const res = await fetch(`http://localhost:${gatewayPort}/mcp`, {
+    const res = await fetch(`http://localhost:${gatewayPort}/mcp/everything`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.jsonrpc).toBe('2.0');
-    expect(data.id).toBe(1);
-    expect(data).toHaveProperty('result');
-    expect(data.result).toHaveProperty('tools');
-    expect(Array.isArray(data.result.tools)).toBe(true);
-  });
-
-  it('should handle initialize via gateway', async () => {
-    const body = {
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2024-11-05',
-        capabilities: {},
-        clientInfo: { name: 'test', version: '1.0.0' },
-      },
-    };
-    const res = await fetch(`http://localhost:${gatewayPort}/mcp`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    // initialize may return 200 or 400 (depending on server), both acceptable
-    expect(res.ok || res.status === 400).toBe(true);
-    const data = await res.json();
-    expect(data.jsonrpc).toBe('2.0');
-    expect(data.id).toBe(2);
-    expect(data).toHaveProperty('result');
+    expect(res.status).toBe(501);
   });
 
   it('should stop and start server via management API', async () => {

@@ -9,9 +9,7 @@ import { Request, Response, NextFunction } from 'express';
  */
 export function timeoutMiddleware(ms: number = 60000): (req: Request, res: Response, next: NextFunction) => void {
   return (req, res, next) => {
-    let timedOut = false;
     const timeout = setTimeout(() => {
-      timedOut = true;
       if (!res.headersSent) {
         res.status(504).json({ error: 'Gateway timeout', detail: `Request exceeded ${ms}ms` });
       } else {

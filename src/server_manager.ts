@@ -28,6 +28,8 @@ export class ServerManager {
   private eventBus: EventBus;
   private transportFactory: TransportFactory;
   private bridgedServers: Set<string> = new Set();
+  private mcpCache: Map<string, { data: any; expires: number }> = new Map();
+  private cacheTtls: Map<string, number> = new Map();
 
   constructor(
     eventBus: EventBus,
@@ -100,21 +102,26 @@ export class ServerManager {
     }
 
     // Determine port with PortAllocator
-    let port: number;
-    if (legacyConfig.port !== undefined) {
-      port = legacyConfig.port;
-      const isSameManualRestart = existingDomain && existingDomain.getPort() === port;
-      if (!isSameManualRestart) {
-        if (this.portAllocator.isAllocated(port)) {
-          throw new Error(`Port ${port} is already in use by another server`);
+    const transportType = server.getTransport();
+    let port: number = 0;
+
+    if (transportType !== "stdio") {
+      if (legacyConfig.port !== undefined) {
+        port = legacyConfig.port;
+        const isSameManualRestart = existingDomain && existingDomain.getPort() === port;
+        if (!isSameManualRestart) {
+          if (this.portAllocator.isAllocated(port)) {
+            throw new Error(`Port ${port} is already in use by another server`);
+          }
+          this.portAllocator.reserve(port);
         }
-        this.portAllocator.reserve(port);
+      } else {
+        port = this.portAllocator.allocate();
       }
-    } else {
-      port = this.portAllocator.allocate();
     }
 
-    server.markStarting();
+      this.cacheTtls.set(id, legacyConfig.cacheTtl ?? 60000);
+      server.markStarting();
     this.eventBus.emit("serverStarting", id);
 
     try {
@@ -163,7 +170,7 @@ export class ServerManager {
       server.setAllocatedPort(port);
 
       // Wait for server to be ready using transport
-      await this.waitForServer(id, transport);
+      await this.waitForServer(id, transport, domainConfig.timeout);
 
       server.markRunning(port, child);
       this.eventBus.emit("serverStarted", id);
@@ -210,8 +217,10 @@ export class ServerManager {
     await this.processManager.stopServer(domainServer);
     domainServer.markStopped();
 
-    // Clean up transport
+    // Clean up transport, cache, and ttl config
     this.transports.delete(id);
+    this.invalidateServerCache(id);
+    this.cacheTtls.delete(id);
 
     if (!isManual && port > 0) {
       this.portAllocator.release(port);
@@ -256,6 +265,61 @@ export class ServerManager {
 
   getAllServers(): LegacyServerState[] {
     return Array.from(this.servers.values()).map(server => adaptToLegacyState(server));
+  }
+
+  private getCacheableMethods(): string[] {
+    return ["tools/list", "resources/list", "prompts/list"];
+  }
+
+  private getCacheKey(serverId: string, method: string): string {
+    return `${serverId}:${method}`;
+  }
+
+  private invalidateServerCache(serverId: string): void {
+    for (const key of this.mcpCache.keys()) {
+      if (key.startsWith(`${serverId}:`)) {
+        this.mcpCache.delete(key);
+      }
+    }
+  }
+
+  async proxyMCPRequest(
+    id: string,
+    body: any
+  ): Promise<{ handled: true; status: number; headers: Record<string, string>; body: any } | { handled: false } | null> {
+    const server = this.servers.get(id);
+    if (!server || !server.isRunning()) return null;
+
+    const transport = this.transports.get(id);
+    if (!transport) return null;
+
+    if (transport.usesPort()) return { handled: false };
+
+    // Cache hit for idempotent read methods
+    if (body?.method && this.getCacheableMethods().includes(body.method)) {
+      const cacheKey = this.getCacheKey(id, body.method);
+      const cached = this.mcpCache.get(cacheKey);
+      if (cached && cached.expires > Date.now()) {
+        return { handled: true, status: 200, headers: { "content-type": "application/json" }, body: cached.data };
+      }
+    }
+
+    try {
+      const response = await transport.sendRequest(server, body);
+
+      // Store in cache for idempotent read methods
+      if (body?.method && this.getCacheableMethods().includes(body.method)) {
+        const ttl = this.cacheTtls.get(id) ?? 60000;
+        if (ttl > 0) {
+          const cacheKey = this.getCacheKey(id, body.method);
+          this.mcpCache.set(cacheKey, { data: response, expires: Date.now() + ttl });
+        }
+      }
+
+      return { handled: true, status: 200, headers: { "content-type": "application/json" }, body: response };
+    } catch (err: any) {
+      return { handled: true, status: 502, headers: { "content-type": "application/json" }, body: { error: err.message } };
+    }
   }
 
   async healthCheck(id: string): Promise<boolean> {

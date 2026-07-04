@@ -1,5 +1,8 @@
 import express from "express";
-import { loadConfig, watchConfig } from "./config_loader.js";
+import { homedir } from "os";
+import { existsSync } from "fs";
+import { join } from "path";
+import { loadConfig, watchConfig, shutdownWatcher, loadRuntimeServers } from "./config_loader.js";
 import { initLogger, getLogger } from "./logger.js";
 import { Container } from "./di/container.js";
 import { AppModule } from "./di/modules/app.module.js";
@@ -9,18 +12,33 @@ import { createManagementAPI } from "./api.js";
 import { createGatewayAPI } from "./gateway.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { errorHandler } from "./middleware/error-handler.js";
-import { metricsMiddleware, metricsErrorMiddleware, metricsHandler } from "./infrastructure/metrics/middleware.js";
+import { metricsMiddleware, metricsErrorMiddleware } from "./infrastructure/metrics/middleware.js";
 import { getMetrics } from "./infrastructure/metrics/metrics.js";
 import compression from "compression";
 import { timeoutMiddleware } from "./middleware/timeout.js";
 import { rateLimit } from "./middleware/rate-limit.js";
 import { auditMiddleware } from "./middleware/audit.js";
 import { requestResponseLogging } from "./middleware/logging.js";
+import { parseCliArgs, showHelp, showVersion } from "./cli/schemas.js";
+import { diffServerConfigs, shouldRestartServer, reloadServersWithStrategy, ConfigValidator } from "./infrastructure/config/index.js";
+import { getConfig } from "./config_loader.js";
+import { ensureAuthToken } from "./config.js";
 
 async function main() {
   const args = process.argv.slice(2);
-  const configPath = args[0] || "./config.yaml";
+  const parsed = parseCliArgs(args);
 
+  if (parsed.help) {
+    showHelp();
+    process.exit(0);
+  }
+
+  if (parsed.version) {
+    showVersion();
+    process.exit(0);
+  }
+
+  const configPath = parsed.configPath;
   console.log(`Loading config from: ${configPath}`);
 
   // Load and validate config with error handling
@@ -38,8 +56,20 @@ async function main() {
     process.exit(1);
   }
 
+  // Auto-generate auth token if auth.autoGenerate is true
+  config.auth = await ensureAuthToken(config.auth);
+  const tokenFile = join(homedir(), ".config", "oh-my-mcp", "auth-token");
+
   initLogger(config.logLevel || "info");
   const logger = getLogger();
+
+  if (config.auth?.autoGenerate) {
+    if (existsSync(tokenFile)) {
+      logger.info({ tokenFile }, "Auth token loaded from file");
+    } else {
+      logger.info({ tokenFile }, "Auth token generated — copy from file");
+    }
+  }
 
   logger.info({
     managementPort: config.managementPort,
@@ -54,19 +84,19 @@ async function main() {
   // Resolve ServerManager from container
   const manager = container.resolve<ServerManager>(ServerManager);
 
-  // Main app (health and root)
-  const app = express();
-  app.use(express.json());
-  app.set("logger", logger);
-  app.use(requestIdMiddleware);
+  // Management API app
+  const managementApp = express();
+  managementApp.set("logger", logger);
+  managementApp.use(express.json());
+  managementApp.use(requestIdMiddleware);
   // Request/Response logging
-  app.use(requestResponseLogging);
+  managementApp.use(requestResponseLogging);
 
-  app.get("/health", (req, res) => {
+  managementApp.get("/health", (req, res) => {
     res.json({ status: "ok", servers: manager.getAllServers().length });
   });
 
-  app.get("/", (req, res) => {
+  managementApp.get("/", (req, res) => {
     res.json({
       name: "oh-my-mcp",
       version: "1.0.0",
@@ -78,13 +108,6 @@ async function main() {
       },
     });
   });
-
-  // Management API app
-  const managementApp = express();
-  managementApp.set("logger", logger);
-  managementApp.use(requestIdMiddleware);
-  // Request/Response logging
-  managementApp.use(requestResponseLogging);
   // Global request timeout for management API (2 minutes)
   managementApp.use(timeoutMiddleware(120000));
   // Enable compression in prod (disable in dev)
@@ -122,6 +145,7 @@ async function main() {
   // Gateway API app
   const gatewayApp = express();
   gatewayApp.set("logger", logger);
+  gatewayApp.use(express.json());
   gatewayApp.use(requestIdMiddleware);
   // Request/Response logging
   gatewayApp.use(requestResponseLogging);
@@ -160,8 +184,7 @@ async function main() {
   gatewayApp.use(createGatewayAPI(manager));
   gatewayApp.use(errorHandler);
 
-  // Root app also needs error handler after routes
-  app.use(errorHandler);
+
 
   // Start servers
   managementApp.listen(config.managementPort, () => {
@@ -182,46 +205,83 @@ async function main() {
     }
   }
 
-  // Hot reload
-  watchConfig(async (newConfig) => {
-    logger.info("Config changed, reloading...");
-
-    const shouldRun = new Set<string>();
-    for (const [id, cfg] of Object.entries(newConfig.servers)) {
-      if (cfg.enabled !== false) shouldRun.add(id);
+  // Load and start runtime-registered servers (survives restarts)
+  const runtimeServers = loadRuntimeServers();
+  for (const [id, serverConfig] of Object.entries(runtimeServers)) {
+    if (!config.servers[id]) {
+      config.servers[id] = serverConfig;
+      logger.info({ server: id }, "Starting runtime-registered server");
+      manager.startServer(id, serverConfig).catch((err) => {
+        logger.error({ server: id, error: err.message }, "Failed to start runtime server");
+      });
     }
+  }
 
-    const currentServers = manager.getAllServers();
-    for (const server of currentServers) {
-      const id = server.id;
-      if (!shouldRun.has(id)) {
-        logger.info({ server: id }, "Stopping server removed or disabled in new config");
-        try {
-          await manager.stopServer(id);
-        } catch (err: any) {
-          logger.error({ server: id, error: err.message }, "Failed to stop server during config reload");
+  // Config validator for hot reload
+  const configValidator = new ConfigValidator({
+    validateBeforeApply: true,
+    rollbackOnError: true,
+    warnOnMissingServers: true,
+  });
+  configValidator.setLastValidConfig(config);
+
+  // Hot reload with smart diff, graceful rolling restart, and validation
+  await watchConfig(async (newConfig) => {
+    // Validate before applying
+    const validationResult = await configValidator.validateAndApply(
+      newConfig,
+      async (validatedConfig) => {
+        const oldConfig = getConfig();
+        const diff = diffServerConfigs(oldConfig, validatedConfig);
+
+        logger.info(
+          { added: diff.added, removed: diff.removed, modified: diff.modified },
+          "Config changed, calculating diff..."
+        );
+
+        const toRestart = diff.modified.filter((id) => shouldRestartServer(diff, id));
+        const noRestart = diff.modified.filter((id) => !shouldRestartServer(diff, id));
+
+        for (const id of noRestart) {
+          logger.info({ server: id, changes: diff.details[id] }, "Server config updated (no restart needed)");
         }
-      }
-    }
 
-    for (const [id, serverConfig] of Object.entries(newConfig.servers)) {
-      if (serverConfig.enabled !== false) {
-        const existing = manager.getServer(id);
-        const isRunning = existing && (existing.status === 'running' || existing.status === 'starting');
-        if (!isRunning) {
-          try {
-            await manager.startServer(id, serverConfig);
-          } catch (err: any) {
-            logger.error({ server: id, error: err.message }, "Failed to start server from config reload");
+        const result = await reloadServersWithStrategy(
+          manager,
+          validatedConfig,
+          diff.added,
+          diff.removed,
+          toRestart,
+          {
+            strategy: "graceful",
+            staggerDelay: 1000,
+            maxConcurrent: 2,
           }
-        }
+        );
+
+        logger.info(
+          { stopped: result.stopped, started: result.started, restarted: result.restarted, failed: result.failed, duration: result.duration },
+          "Config reload complete"
+        );
       }
+    );
+
+    if (!configValidator.getLastValidConfig()) {
+      configValidator.setLastValidConfig(config);
+    }
+
+    if (!validationResult.success) {
+      logger.error({ error: validationResult.error, usedFallback: validationResult.usedFallback }, "Config reload failed");
     }
   });
 
   // Graceful shutdown with timeout
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "Received termination signal, shutting down...");
+    
+    // Stop config watcher first
+    await shutdownWatcher();
+    
     const timeoutMs = 10000;
     const stopPromise = manager.stopAll();
     const timeoutPromise = new Promise<void>((resolve) => setTimeout(resolve, timeoutMs));
