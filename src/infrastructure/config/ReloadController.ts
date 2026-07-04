@@ -9,6 +9,8 @@ export interface ReloadOptions {
   strategy: "immediate" | "graceful" | "rolling";
   staggerDelay: number;
   maxConcurrent: number;
+  verifyHealthRetries?: number;
+  verifyHealthDelay?: number;
 }
 
 export interface ReloadResult {
@@ -24,6 +26,8 @@ const DEFAULT_OPTIONS: ReloadOptions = {
   strategy: "graceful",
   staggerDelay: 1000,
   maxConcurrent: 2,
+  verifyHealthRetries: 3,
+  verifyHealthDelay: 500,
 };
 
 export async function reloadServersWithStrategy(
@@ -49,13 +53,13 @@ export async function reloadServersWithStrategy(
   try {
     switch (opts.strategy) {
       case "immediate":
-        return await immediateReload(manager, config, added, removed, modified);
+        return await immediateReload(manager, config, added, removed, modified, opts);
       case "graceful":
         return await gracefulReload(manager, config, added, removed, modified, opts);
       case "rolling":
         return await rollingReload(manager, config, added, removed, modified, opts);
       default:
-        return await immediateReload(manager, config, added, removed, modified);
+        return await immediateReload(manager, config, added, removed, modified, opts);
     }
   } finally {
     result.duration = Date.now() - startTime;
@@ -67,7 +71,8 @@ async function immediateReload(
   config: Config,
   added: string[],
   removed: string[],
-  modified: string[]
+  modified: string[],
+  opts: ReloadOptions
 ): Promise<ReloadResult> {
   const result: ReloadResult = {
     success: true,
@@ -93,7 +98,13 @@ async function immediateReload(
     try {
       await manager.stopServer(id);
       await manager.startServer(id, config.servers[id]);
-      result.restarted.push(id);
+      const healthy = await verifyServerHealth(manager, id, opts.verifyHealthRetries!, opts.verifyHealthDelay!);
+      if (!healthy) {
+        result.failed.push({ id, error: "Health check failed after restart" });
+        result.success = false;
+      } else {
+        result.restarted.push(id);
+      }
     } catch (err: any) {
       result.failed.push({ id, error: err.message });
       result.success = false;
@@ -103,7 +114,13 @@ async function immediateReload(
   for (const id of added) {
     try {
       await manager.startServer(id, config.servers[id]);
-      result.started.push(id);
+      const healthy = await verifyServerHealth(manager, id, opts.verifyHealthRetries!, opts.verifyHealthDelay!);
+      if (!healthy) {
+        result.failed.push({ id, error: "Health check failed after start" });
+        result.success = false;
+      } else {
+        result.started.push(id);
+      }
     } catch (err: any) {
       result.failed.push({ id, error: err.message });
       result.success = false;
@@ -151,8 +168,15 @@ async function gracefulReload(
       await manager.stopServer(id);
       await delay(500);
       await manager.startServer(id, config.servers[id]);
-      result.restarted.push(id);
-      logger.info({ server: id }, "Restarted server");
+      const healthy = await verifyServerHealth(manager, id, opts.verifyHealthRetries!, opts.verifyHealthDelay!);
+      if (!healthy) {
+        result.failed.push({ id, error: "Health check failed after restart" });
+        result.success = false;
+        logger.error({ server: id }, "Health check failed after restart");
+      } else {
+        result.restarted.push(id);
+        logger.info({ server: id }, "Restarted server");
+      }
     } catch (err: any) {
       result.failed.push({ id, error: err.message });
       logger.error({ server: id, error: err.message }, "Failed to restart server");
@@ -163,8 +187,15 @@ async function gracefulReload(
   for (const id of added) {
     try {
       await manager.startServer(id, config.servers[id]);
-      result.started.push(id);
-      logger.info({ server: id }, "Started new server");
+      const healthy = await verifyServerHealth(manager, id, opts.verifyHealthRetries!, opts.verifyHealthDelay!);
+      if (!healthy) {
+        result.failed.push({ id, error: "Health check failed after start" });
+        result.success = false;
+        logger.error({ server: id }, "Health check failed after start");
+      } else {
+        result.started.push(id);
+        logger.info({ server: id }, "Started new server");
+      }
     } catch (err: any) {
       result.failed.push({ id, error: err.message });
       logger.error({ server: id, error: err.message }, "Failed to start server");
@@ -223,12 +254,26 @@ async function rollingReload(
             await manager.stopServer(id);
             await delay(500);
             await manager.startServer(id, config.servers[id]);
-            result.restarted.push(id);
-            logger.info({ server: id }, "Restarted server");
+            const healthy = await verifyServerHealth(manager, id, opts.verifyHealthRetries!, opts.verifyHealthDelay!);
+            if (!healthy) {
+              result.failed.push({ id, error: "Health check failed after restart" });
+              result.success = false;
+              logger.error({ server: id }, "Health check failed after restart");
+            } else {
+              result.restarted.push(id);
+              logger.info({ server: id }, "Restarted server");
+            }
           } else if (action === "start") {
             await manager.startServer(id, config.servers[id]);
-            result.started.push(id);
-            logger.info({ server: id }, "Started server");
+            const healthy = await verifyServerHealth(manager, id, opts.verifyHealthRetries!, opts.verifyHealthDelay!);
+            if (!healthy) {
+              result.failed.push({ id, error: "Health check failed after start" });
+              result.success = false;
+              logger.error({ server: id }, "Health check failed after start");
+            } else {
+              result.started.push(id);
+              logger.info({ server: id }, "Started server");
+            }
           }
         } catch (err: any) {
           result.failed.push({ id, error: err.message });
@@ -262,6 +307,19 @@ async function rollingReload(
   );
   
   return result;
+}
+
+async function verifyServerHealth(
+  manager: ServerManager,
+  id: string,
+  retries: number,
+  delayMs: number
+): Promise<boolean> {
+  for (let i = 0; i < retries; i++) {
+    if (await manager.healthCheck(id)) return true;
+    if (i < retries - 1) await delay(delayMs);
+  }
+  return false;
 }
 
 function delay(ms: number): Promise<void> {

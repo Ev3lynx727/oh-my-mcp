@@ -18,6 +18,7 @@ const createMockManager = () => ({
   startServer: vi.fn().mockResolvedValue(undefined),
   stopServer: vi.fn().mockResolvedValue(undefined),
   getServer: vi.fn().mockReturnValue({ status: 'running' }),
+  healthCheck: vi.fn().mockResolvedValue(true),
 });
 
 describe('ReloadController', () => {
