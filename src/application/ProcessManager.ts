@@ -61,7 +61,7 @@ export class ProcessManager {
 
     this.runningProcesses.set(id, child);
 
-    ;[child.stdin, child.stdout, child.stderr].forEach(s => s?.on("error", () => {}))
+    [child.stdin, child.stdout, child.stderr].forEach(s => s?.on("error", () => {}))
 
     child.stdout?.on("data", (data) => {
       const msg = data.toString().trim();

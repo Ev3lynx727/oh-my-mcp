@@ -1,6 +1,6 @@
 import { getLogger } from "../../logger.js";
 import { MCPServer } from "../../domain/Server.js";
-import { HttpClient, HttpError } from "../../infrastructure/http/HttpClient.js";
+import { HttpClient } from "../../infrastructure/http/HttpClient.js";
 import { ServerTransport } from "../../domain/Transport.js";
 
 const logger = getLogger();
