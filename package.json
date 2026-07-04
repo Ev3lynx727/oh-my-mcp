@@ -15,7 +15,7 @@
     "lint": "eslint src --ext .ts",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
-    "postinstall": "patch -p1 < patches/supergateway+3.4.3.patch",
+    "prepare": "test -f patches/supergateway+3.4.3.patch && patch -p1 < patches/supergateway+3.4.3.patch || true",
     "prepublishOnly": "npm run build"
   },
   "files": [
