@@ -3,9 +3,11 @@ import { SuperGatewayTransport } from '../../../src/infrastructure/transports/Su
 import { HttpClient } from '../../../src/infrastructure/http/HttpClient.ts';
 
 const mockPost = vi.fn();
+const mockGet = vi.fn();
 
 const mockHttpClient: HttpClient = {
   post: mockPost,
+  get: mockGet,
 } as any;
 
 describe('SuperGatewayTransport', () => {
@@ -32,57 +34,49 @@ describe('SuperGatewayTransport', () => {
     expect(transport.usesPort()).toBe(true);
   });
 
-  it('isReady polls until initialize succeeds (200 or 400)', async () => {
-    // First call throws, second succeeds with 400
-    mockPost.mockRejectedValueOnce(new Error('conn refused'));
-    mockPost.mockResolvedValueOnce({ ok: true, status: 400, json: async () => ({}) });
+  it('isReady polls until get succeeds', async () => {
+    // First call throws, second succeeds
+    mockGet.mockRejectedValueOnce(new Error('conn refused'));
+    mockGet.mockResolvedValueOnce({ ok: true, status: 200 } as any);
 
     const ready = await transport.isReady(makeServer(1234), 5000);
     expect(ready).toBe(true);
-    expect(mockPost).toHaveBeenCalledTimes(2);
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
   it('isReady returns false after timeout without success', async () => {
-    mockPost.mockRejectedValue(new Error('down'));
+    mockGet.mockRejectedValue(new Error('down'));
     const ready = await transport.isReady(makeServer(1234), 100);
     expect(ready).toBe(false);
   });
 
   it('healthCheck returns true for 200', async () => {
-    mockPost.mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    mockGet.mockResolvedValue({ ok: true, status: 200 } as any);
     const healthy = await transport.healthCheck(makeServer(1234));
     expect(healthy).toBe(true);
-    expect(mockPost).toHaveBeenCalledWith(
-      'http://127.0.0.1:1234/mcp',
-      expect.objectContaining({
-        jsonrpc: '2.0',
-        id: 2,
-        method: 'tools/list',
-        params: {},
-      }),
-      { timeout: 60000 }
+    expect(mockGet).toHaveBeenCalledWith(
+      'http://127.0.0.1:1234/healthz',
+      { timeout: 5000 }
     );
   });
 
-  it('healthCheck returns true for 400 (some servers respond 400 for unsupported method but still valid)', async () => {
-    mockPost.mockResolvedValue({ ok: true, status: 400, json: async () => ({}) });
+  it('healthCheck returns true for 400', async () => {
+    mockGet.mockResolvedValue({ ok: true, status: 400 } as any);
     const healthy = await transport.healthCheck(makeServer(1234));
     expect(healthy).toBe(true);
   });
 
   it('healthCheck returns false on non-ok response', async () => {
-    mockPost.mockResolvedValue({ ok: false, status: 500, json: async () => ({}) });
+    mockGet.mockResolvedValue({ ok: false, status: 500 } as any);
     const healthy = await transport.healthCheck(makeServer(1234));
     expect(healthy).toBe(false);
   });
 
   it('healthCheck returns false if server has no port', async () => {
     const badServer = { getPort: () => 0, getTimeout: () => 60000, id: 'test' } as any;
-    // Synchronous check in transport: returns false without calling HttpClient
-    // Actually isReady checks port; healthCheck also checks port; it will return false immediately.
     const healthy = await transport.healthCheck(badServer);
     expect(healthy).toBe(false);
-    expect(mockPost).not.toHaveBeenCalled();
+    expect(mockGet).not.toHaveBeenCalled();
   });
 
   it('sendRequest returns parsed JSON on ok', async () => {

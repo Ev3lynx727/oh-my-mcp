@@ -104,7 +104,8 @@ servers:
     expect(everything.port).toBeGreaterThan(0);
   });
 
-  it('should proxy tools/list request through gateway', async () => {
+  it('gateway returns 501 for supergateway-transport servers', async () => {
+    // Gateway only proxies stdio transport. Supergateway servers have their own HTTP endpoint.
     const body = {
       jsonrpc: '2.0',
       id: 1,
@@ -113,52 +114,10 @@ servers:
     };
     const res = await fetch(`http://localhost:${gatewayPort}/mcp/everything`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    expect(res.status).toBe(200);
-    const rawText = await res.text();
-    console.log('RAW TEXT RESPONSE 1:', rawText);
-    const dataLine = rawText.split('\n').find(l => l.startsWith('data: '));
-    const data = JSON.parse(dataLine!.slice(6));
-    expect(data.jsonrpc).toBe('2.0');
-    expect(data.id).toBe(1);
-    expect(data).toHaveProperty('result');
-    expect(data.result).toHaveProperty('tools');
-    expect(Array.isArray(data.result.tools)).toBe(true);
-  });
-
-  it('should handle initialize via gateway', async () => {
-    const body = {
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2024-11-05',
-        capabilities: {},
-        clientInfo: { name: 'test', version: '1.0.0' },
-      },
-    };
-    const res = await fetch(`http://localhost:${gatewayPort}/mcp/everything`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream',
-      },
-      body: JSON.stringify(body),
-    });
-    // initialize may return 200 or 400 (depending on server), both acceptable
-    expect(res.ok || res.status === 400).toBe(true);
-    const rawText = await res.text();
-    console.log('RAW TEXT RESPONSE 2:', rawText);
-    const dataLine = rawText.split('\n').find(l => l.startsWith('data: '));
-    const data = JSON.parse(dataLine!.slice(6));
-    expect(data.jsonrpc).toBe('2.0');
-    expect(data.id).toBe(2);
-    expect(data).toHaveProperty('result');
+    expect(res.status).toBe(501);
   });
 
   it('should stop and start server via management API', async () => {

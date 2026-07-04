@@ -58,14 +58,13 @@ describe('ProcessManager', () => {
     await pm.startServer(server, config as any, 8100);
 
     expect(mockSpawn).toHaveBeenCalledWith(
-      'npx',
+      'node',
       expect.arrayContaining([
-        '-y',
-        'supergateway',
+        expect.stringContaining('supergateway/dist/index.js'),
         '--stdio',
         'echo hello',
         '--outputTransport',
-        'streamableHttp',
+        'sse',
         '--port',
         '8100',
       ]),
