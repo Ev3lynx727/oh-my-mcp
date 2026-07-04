@@ -19,11 +19,11 @@ Windows OpenCode/Cursor/Claude Desktop
 
 oh-my-mcp in WSL (systemd user service)
   ├─ port 8080: Management API (GET /servers, POST /servers/:id/start, etc.)
-  ├─ port 8090: Gateway (returns 501 for SSE-mode servers)
-  └─ port 8101-8103: supergateway SSE per server
+  ├─ port 8090: Gateway — proxies POST /mcp/:serverId for stdio transport servers
+  └─ port 8101-8103: supergateway SSE per server (supergateway-mode only)
 ```
 
-Key: gateway does NOT proxy data for SSE-mode servers. External clients connect to SSE ports directly. Gateway handles management only (start/stop/restart/list).
+Key: gateway proxies JSON-RPC over stdin/stdout for stdio transport servers (ark-*). For supergateway-mode servers, it returns 501 and clients connect to SSE ports directly.
 
 ## Architecture
 
@@ -82,10 +82,10 @@ src/
 | Decision | Choice | Why |
 |----------|--------|-----|
 | Transport | supergateway (HTTP/SSE) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients (Windows, LAN, VPS); DirectStdioTransport for local servers (~0.5ms faster per request, one less process). |
-| Two apps | Management (8080) + Gateway (8090) | Different auth/rate-limit policies. Management for operators, gateway for clients. |
+| Two apps | Management (8080) + Gateway (8090) | Gateway proxies stdio transport servers (ark-*) via JSON-RPC over stdin/stdout. Returns 501 for supergateway-mode servers — clients connect to SSE ports directly. |
 | Domain model | MCPServer state machine | Pure domain with enforced state transitions (STOPPED→STARTING→RUNNING→STOPPING→ERROR). Testable without spawning processes. |
 | DI | Manual container (70 lines) | No decorators/reflection. Avoids tsyringe/inversify dependency. |
-| Legacy adapters | adapters.ts bridges two eras | Mid-migration from flat ServerState to domain MCPServer. Bridge will be removed when migration completes. |
+| Legacy adapters | adapters.ts bridges two eras | Mid-migration from flat ServerState to domain MCPServer. Deferred — works, tested, no behavioral benefit to removing. |
 
 ## Pipeline
 
@@ -181,6 +181,18 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 - Dockerfile — **not committed**
 - WebSocket / OAuth2 / React UI — **roadmap**
 
+## Audit Trail (2026-07-04)
+
+Deprecated items identified and resolved:
+
+| # | Item | Verdict | Action |
+|:-:|------|---------|--------|
+| 1 | Gateway port 8090 | **KEPT** — proxies stdio transport for ark-* servers | Updated docs to clarify role |
+| 2 | Legacy adapters | **DEFERRED** — works, 101 test lines pass, no behavioral gain from removing | Updated status in Design Decisions |
+| 3 | Dead config (memory/filesystem/sqlite/web-search) | **REMOVED** — template leftovers, `enabled: true` wasting resources | Deleted from config.yaml |
+| 4 | mempalace not in config | **SKIPPED** — runs standalone, add when managed lifecycle needed | — |
+| 5 | supergateway SSE patch | **ALREADY WIRED** — `postinstall` + `patches/supergateway+3.4.3.patch` automates re-application | Updated patch docs |
+
 ## Recent Changes (v1.0.1 → v1.0.2-pre)
 
 5 commits after npm v1.0.1: complete architectural refactor. Flat Express app → domain-driven layered architecture with DI, hot-reload, CLI, transport abstraction, comprehensive middleware. ~3x source code.
@@ -212,6 +224,6 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 
 **Problem**: One `Server` instance shared across all SSE connections. SDK's `Server.connect()` only accepts one transport — second connection crashes with `Already connected to a transport`.
 
-**Fix** (2-line change): Removed `const server = new Server(...)` from module scope, inserted inside the GET/sse handler before `await server.connect(sseTransport)`.
+**Fix** (2-line change): Removed `const server = new Server(...)` from module scope, inserted inside the GET/sse handler (`const sseServer = new Server(...)`) before `await sseServer.connect(sseTransport)`.
 
-**Persistence**: Pinned in package.json, but `npm install` overwrites. To re-apply: move `const server = new Server({ name: 'supergateway', ... })` into the `app.get(ssePath, ...)` handler (before the `await server.connect` call), rename to `sseServer`.
+**Persistence**: `patches/supergateway+3.4.3.patch` applied via `"postinstall": "patch -p1 < patches/supergateway+3.4.3.patch"` in package.json. Survives `npm install`.
