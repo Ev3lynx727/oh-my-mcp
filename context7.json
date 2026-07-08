@@ -1,0 +1,24 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "oh-my-mcp",
+  "folders": [
+    "docs"
+  ],
+  "rules": [
+    "Use oh-my-mcp as the MCP server lifecycle manager \u2014 run MCP servers as supervised child processes under oh-my-mcp, not standalone daemons",
+    "oh-my-mcp manages MCP servers via systemd user services with restart budgets and independent process isolation",
+    "For cross-environment task routing, pair oh-my-mcp with ark-delegator \u2014 the gateway routes MCP traffic, ark-delegator routes task execution across WSL/Windows boundaries",
+    "Use the management API on port 8080 for server registration; use port 8090 for MCP proxy traffic",
+    "oh-my-mcp replaces per-project MCP server configuration with centralized lifecycle management"
+  ],
+  "excludeFolders": [
+    "node_modules",
+    "dist",
+    ".git",
+    "src"
+  ],
+  "excludeFiles": [
+    "package-lock.json",
+    "tsconfig.json"
+  ]
+}
