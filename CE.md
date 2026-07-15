@@ -81,8 +81,8 @@ src/
 
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Transport | supergateway (HTTP/SSE) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients; DirectStdioTransport for local servers (~4ms, one less process). |
-| Two apps | Management (8080) + Gateway (8090) | Gateway proxies stdio transport servers (ark-*) via JSON-RPC over stdin/stdout. Returns 501 for supergateway-mode servers — clients connect to SSE ports directly. |
+| Transport | supergateway (streamableHttp stateful) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients (session-persistent child via `Mcp-Session-Id`); DirectStdioTransport for local servers (~4ms, one less process). |
+| Two apps | Management (8080) + Gateway (8090) | Gateway proxies stdio transport servers (ark-*) via JSON-RPC over stdin/stdout. Supergateway-mode servers proxy through the gateway too (stateful streamableHttp JSON-RPC). |
 | Domain model | MCPServer state machine | Pure domain with enforced state transitions (STOPPED→STARTING→RUNNING→STOPPING→ERROR). Testable without spawning processes. |
 | DI | Manual container (70 lines) | No decorators/reflection. Avoids tsyringe/inversify dependency. |
 | Legacy adapters | adapters.ts bridges two eras | Mid-migration from flat ServerState to domain MCPServer. Deferred — works, tested, no behavioral benefit to removing. |
@@ -160,7 +160,8 @@ Config (YAML):
 - **Shutdown hard limit 10s** — after SIGTERM/SIGINT, servers get 10s then process.exit(0).
 - **Gateway timeout 60s** — hardcoded in http.request options and timeout middleware.
 - **Cache TTL 60s default** — `proxyMCPRequest` caches `tools/list`, `resources/list`, `prompts/list` responses by server id. Per-server `cacheTtl` in config.yaml. Evicted on server stop/restart. Cache partitioned by server id only — not by request arguments (list methods are argument-free).
-- **No WS streaming** — roadmap item. Current SSE via polling.
+- **Stateful sessions** — supergateway runs with `--outputTransport streamableHttp --stateful`. Child process persists per `Mcp-Session-Id`, eliminating per-request spawn overhead and ~32ms SSE→MCP conversion. Session timeout via `sessionTimeout` config.
+- **No WS streaming** — roadmap item.
 - **No Dockerfile committed** — Docker/K8s docs exist but no build artifact.
 
 ## Plugin Ecosystem

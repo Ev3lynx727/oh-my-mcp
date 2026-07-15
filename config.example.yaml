@@ -11,7 +11,9 @@ auth:
 
 servers:
   # --- transport modes ---
-  # "supergateway" (default): wraps stdio server via supergateway bridge → HTTP endpoint
+  # "supergateway" (default): wraps stdio server via supergateway bridge → streamableHttp endpoint
+  #                supergateway runs in stateful mode — persists child process per session
+  #                (Mcp-Session-Id header), eliminating per-request spawn overhead
   # "stdio":       spawns the command directly, gateway proxies JSON-RPC over stdin/stdout
   #                use for any command that speaks JSON-RPC on stdio natively
 
@@ -22,6 +24,9 @@ servers:
   #     - "-y"
   #     - "@modelcontextprotocol/server-example"
   #   transport: "supergateway"
+  #   sessionTimeout: 60000     # session timeout for stateful mode (supergateway transport)
+  #                                # child process is cleaned up after this idle period
+  #                                # omit = session lives until client explicitly disconnects
   #   healthCheck:
   #     interval: 10000           # check every 10s
   #     timeout: 3000            # health check timeout 3s

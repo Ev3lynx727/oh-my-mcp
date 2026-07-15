@@ -33,6 +33,8 @@ export interface HttpClientOptions {
   maxBackoffMs?: number;
   /** Base URL to prepend to relative paths */
   baseUrl?: string;
+  /** Additional headers to merge into the request */
+  headers?: Record<string, string>;
 }
 
 /**
@@ -100,6 +102,7 @@ export class HttpClient {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json, text/event-stream",
+            ...options.headers,
           },
           body: body ? JSON.stringify(body) : undefined,
           signal: controller.signal,

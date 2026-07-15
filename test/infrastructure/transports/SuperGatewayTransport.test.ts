@@ -81,12 +81,36 @@ describe('SuperGatewayTransport', () => {
 
   it('sendRequest returns parsed JSON on ok', async () => {
     const responseData = { jsonrpc: '2.0', result: {} };
-    mockPost.mockResolvedValue({ ok: true, status: 200, text: async () => `event: message\\ndata: ${JSON.stringify(responseData)}\\n\\n` });
+    mockPost.mockResolvedValue({ ok: true, status: 200, text: async () => JSON.stringify(responseData), headers: { get: () => null } });
     const server = makeServer(1234);
     const req = { jsonrpc: '2.0', id: 1, method: 'test', params: {} };
     const result = await transport.sendRequest(server, req);
     expect(result).toEqual(responseData);
-    expect(mockPost).toHaveBeenCalledWith('http://127.0.0.1:1234/mcp', req, { timeout: 60000 });
+    expect(mockPost).toHaveBeenCalledWith('http://127.0.0.1:1234/mcp', req, { timeout: 60000, headers: {} });
+  });
+
+  it('sendRequest captures and sends session ID header', async () => {
+    // First request — no session ID yet, response gives one
+    const initResponse = { jsonrpc: '2.0', result: { protocolVersion: '2024-11-05' } };
+    mockPost.mockResolvedValueOnce({
+      ok: true, status: 200, text: async () => JSON.stringify(initResponse),
+      headers: { get: (h: string) => h === 'mcp-session-id' ? 'abc-123' : null }
+    });
+    // Second request — should include session ID
+    const toolResponse = { jsonrpc: '2.0', result: { tools: [] } };
+    mockPost.mockResolvedValueOnce({
+      ok: true, status: 200, text: async () => JSON.stringify(toolResponse),
+      headers: { get: () => null }
+    });
+
+    const server = makeServer(1234);
+    await transport.sendRequest(server, { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
+    await transport.sendRequest(server, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
+
+    // First call: no session header
+    expect(mockPost.mock.calls[0][2].headers).toEqual({});
+    // Second call: includes captured session ID
+    expect(mockPost.mock.calls[1][2].headers).toEqual({ 'mcp-session-id': 'abc-123' });
   });
 
   it('sendRequest throws on non-ok with JSON body', async () => {

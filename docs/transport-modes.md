@@ -103,41 +103,46 @@ Total parse/serialize cycles: **3** (2 parse + 1 stringify)
 
 Identical serialization cost. The supergateway overhead is the extra TCP connection and hop-by-hop header handling, not JSON processing.
 
-## SSE Mode (current default)
+## StreamableHttp Stateful Mode (current default)
 
-As of oh-my-mcp v1.0.2-pre, supergateway runs with `--outputTransport sse` (not streamableHttp). This enables direct SSE connections from remote clients.
+As of oh-my-mcp v1.1.0, supergateway runs with `--outputTransport streamableHttp --stateful` (replacing the previous SSE mode). This eliminates the ~32ms SSE→MCP conversion overhead and the per-request child process spawn.
 
-### Client connectivity
+### How stateful sessions work
 
-Windows clients connect directly to supergateway's SSE port, bypassing the oh-my-mcp gateway:
+1. **Initialize** — client sends `initialize` via `POST /mcp`. Supergateway spawns the child process and returns `Mcp-Session-Id` response header
+2. **Reuse** — subsequent requests include the `Mcp-Session-Id` header. The same child process handles all requests in the session
+3. **Timeout** — If `sessionTimeout` is configured, idle sessions are cleaned up. If omitted, the session lives until the client sends `DELETE` or the process exits
+4. **Cleanup** — `DELETE /mcp` with session ID terminates the session and kills the child
 
-```json
-{
-  "ark-exec": { "type": "remote", "url": "http://localhost:8101/sse" },
-  "ark-memory": { "type": "remote", "url": "http://localhost:8102/sse" },
-  "ark-resolve": { "type": "remote", "url": "http://localhost:8103/sse" }
-}
-```
+### Session tracking in SuperGatewayTransport
 
-The gateway (port 8090) still handles management API (`GET /servers`), but returns 501 for MCP proxy requests on SSE-mode servers — clients must connect directly to the SSE port.
+The `SuperGatewayTransport` class captures `Mcp-Session-Id` from the initialize response and includes it in all subsequent requests. If a 400 response indicates session expiry, the transport resets its session ID so the next call re-initializes.
 
 ### Health checking
 
-With SSE output, there's no `/mcp` endpoint. Health checks use supergateway's `--healthEndpoint /healthz` (GET, returns "ok"). All health check code paths use this endpoint:
+Health checks use supergateway's `--healthEndpoint /healthz` (GET, returns "ok"). All health check code paths use this endpoint:
 - `SuperGatewayTransport.isReady()` — polling loop
 - `SuperGatewayTransport.healthCheck()` — single check
 
-Health check POST routing to `/mcp` will always fail (405/404) in SSE mode.
+### Configuration
 
-### Known issue: supergateway SSE reconnection
+Optional per-server:
 
-**symptom**: Second SSE client connection (or reconnect) crashes supergateway with `Error: Already connected to a transport`.
+```yaml
+servers:
+  my-server:
+    command: ["npx", "-y", "@modelcontextprotocol/server-example"]
+    transport: supergateway
+    sessionTimeout: 60000   # idle timeout before child cleanup (omit = indefinite)
+```
 
-**root cause**: supergateway's `stdioToSse.js` creates one MCP SDK `Server` instance and reuses it for all SSE connections. The SDK's `Server.connect()` only accepts one transport per instance.
+### Benchmark impact
 
-**fix**: Patched `node_modules/supergateway/dist/gateways/stdioToSse.js` — moved `new Server({...})` inside the GET/sse handler so each SSE connection gets its own instance with its own transport.
-
-**persistence**: This is a node_modules patch. It persists while supergateway is pinned in package.json, but `npm install` overwrites it. If that happens, re-apply: move `const server = new Server(...)` from module scope into the GET handler before `await server.connect(sseTransport)`.
+| Metric | SSE (before) | StreamableHttp Stateful (after) |
+|--------|-------------|-------------------------------|
+| SSE→MCP conversion | ~32ms | 0 (direct JSON-RPC) |
+| Per-request child spawn | ~50-1123ms setup variance | 0 (process persists) |
+| Request response | ~10-25ms tool calls | ~8-11ms tool calls |
 
 ## Configuration
 

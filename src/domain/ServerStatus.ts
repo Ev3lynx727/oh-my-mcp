@@ -55,6 +55,8 @@ export interface ServerConfig {
     timeout: number;
     unhealthyThreshold: number;
   };
+  /** Session timeout in ms for stateful supergateway transport */
+  readonly sessionTimeout?: number;
 }
 
 /**

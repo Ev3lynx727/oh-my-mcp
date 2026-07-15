@@ -35,11 +35,12 @@ describe('ProcessManager', () => {
     ...overrides,
   });
 
-  // Create a minimal MCPServer mock that provides id and getPort
+  // Create a minimal MCPServer mock
   const makeServer = (id: string, port: number = 1234): MCPServer => ({
     id,
     getPort: () => port,
     getTransport: () => 'supergateway',
+    getSessionTimeout: () => undefined,
   } as unknown as MCPServer);
 
   beforeEach(() => {
@@ -64,7 +65,8 @@ describe('ProcessManager', () => {
         '--stdio',
         'echo hello',
         '--outputTransport',
-        'sse',
+        'streamableHttp',
+        '--stateful',
         '--port',
         '8100',
       ]),

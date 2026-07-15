@@ -45,13 +45,18 @@ export class ProcessManager {
         "--stdio",
         stdioCmd,
         "--outputTransport",
-        "sse",
+        "streamableHttp",
+        "--stateful",
         "--port",
         port.toString(),
         "--healthEndpoint",
         "/healthz",
       ];
-      logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting supergateway server process");
+      const sessionTimeout = server.getSessionTimeout();
+      if (sessionTimeout) {
+        args.push("--sessionTimeout", sessionTimeout.toString());
+      }
+      logger.info({ server: id, port, command: legacyConfig.command, args }, "Starting supergateway server process (stateful streamableHttp)");
       child = spawn("node", args, {
         env: mergedEnv,
         stdio: ["pipe", "pipe", "pipe"],

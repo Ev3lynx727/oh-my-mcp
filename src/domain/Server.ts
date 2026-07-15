@@ -54,6 +54,7 @@ export class MCPServer extends EventEmitter {
       enabled: config.enabled !== false, // default true
       transport: config.transport,
       healthCheck: config.healthCheck,
+      sessionTimeout: config.sessionTimeout,
     };
     this.state = {
       ...state,
@@ -127,6 +128,11 @@ export class MCPServer extends EventEmitter {
   /** Get transport type */
   getTransport(): "supergateway" | "stdio" {
     return this.config.transport || 'supergateway';
+  }
+
+  /** Get session timeout for stateful transport */
+  getSessionTimeout(): number | undefined {
+    return this.config.sessionTimeout;
   }
 
   /** Check if server is enabled in config */
@@ -348,11 +354,12 @@ export class MCPServer extends EventEmitter {
       timeout: rawConfig.timeout || 60000,
       port: rawConfig.port,
       enabled: rawConfig.enabled !== false,
-      transport: rawConfig.transport,
-      healthCheck: rawConfig.healthCheck,
-    };
+    transport: rawConfig.transport,
+    healthCheck: rawConfig.healthCheck,
+    sessionTimeout: rawConfig.sessionTimeout,
+  };
 
-    const mergedState: ServerState = {
+  const mergedState: ServerState = {
       status: ServerStatus.STOPPED,
       port: config.port ?? 0,
       ...state,

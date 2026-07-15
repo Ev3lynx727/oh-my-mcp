@@ -10,8 +10,13 @@ const logger = getLogger();
  *
  * Assumes the server is already running (started by ProcessManager) and listening on a port.
  * Uses supergateway's streamableHttp endpoint at `http://127.0.0.1:${port}/mcp`.
+ *
+ * In stateful mode (--stateful), the first POST (initialize) returns an Mcp-Session-Id header.
+ * All subsequent requests include that header to reuse the same child process session.
  */
 export class SuperGatewayTransport implements ServerTransport {
+  private sessionId: string | null = null;
+
   constructor(private httpClient: HttpClient) { }
 
   async isReady(server: MCPServer, timeoutMs?: number): Promise<boolean> {
@@ -61,35 +66,35 @@ export class SuperGatewayTransport implements ServerTransport {
       throw new Error(`Server ${server.id} has no port assigned`);
     }
 
-    const response = await this.httpClient.post(`http://127.0.0.1:${port}/mcp`, request, {
-      timeout: server.getTimeout(),
-    });
+    const headers: Record<string, string> = {};
+    if (this.sessionId) {
+      headers["mcp-session-id"] = this.sessionId;
+    }
+
+    const response = await this.httpClient.post(
+      `http://127.0.0.1:${port}/mcp`,
+      request,
+      { timeout: server.getTimeout(), headers }
+    );
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
+      // Session expired or invalid — reset so next call re-initializes
+      if (response.status === 400) {
+        this.sessionId = null;
+      }
       throw new Error(`HTTP ${response.status}: ${text}`);
     }
 
-    const responseText = await response.text();
-    const lines = responseText.split('\\n');
-    let dataPayload = '';
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        dataPayload = line.slice(6);
-        break; // SSE data found
-      }
+    // Capture session ID from response headers (set on initialize)
+    const sid = response.headers?.get?.("mcp-session-id");
+    if (sid) {
+      this.sessionId = sid;
     }
 
-    if (!dataPayload) {
-      // It might be pure JSON (if transport ever changes)
-      try {
-        return JSON.parse(responseText);
-      } catch (e) {
-        throw new Error(`Failed to parse response: ${responseText}`);
-      }
-    }
-
-    return JSON.parse(dataPayload);
+    // Stateful streamableHttp returns raw JSON-RPC — no SSE wrapping
+    const text = await response.text();
+    return JSON.parse(text);
   }
 
   getEndpoint(server: MCPServer): string {

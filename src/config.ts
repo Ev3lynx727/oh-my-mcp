@@ -39,6 +39,7 @@ export const ServerConfigSchema = z.object({
       unhealthyThreshold: z.number().optional().default(3),
     })
     .optional(),
+  sessionTimeout: z.number().positive().optional(),
 });
 
 export const AuthConfigSchema = z.object({
