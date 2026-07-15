@@ -3,6 +3,7 @@ import { ServerManager } from "./server_manager.js";
 import { getConfig, saveRuntimeServer, removeRuntimeServer } from "./config_loader.js";
 import { getLogger } from "./logger.js";
 import { ServerConfigSchema } from "./config.js";
+import { createMcpHost } from "./infrastructure/mcp-host/McpHost.js";
 import { ServerIdSchema, ListServersQuerySchema, validationErrorToResponse } from "./api/schemas.js";
 
 const logger = getLogger();
@@ -265,6 +266,17 @@ export function createManagementAPI(manager: ServerManager) {
     await manager.stopAll();
     res.json({ status: "stopped" });
   });
+
+  // MCP Host endpoint (when enabled in config)
+  try {
+    const config = getConfig();
+    if (config.mcpHost?.enabled) {
+      router.use(createMcpHost(manager));
+      logger.info("MCP Host endpoint mounted at /mcp/server");
+    }
+  } catch {
+    // Config not loaded yet — MCP Host will not be available
+  }
 
   return router;
 }

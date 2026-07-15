@@ -263,6 +263,10 @@ export class ServerManager {
     return this.servers.get(id);
   }
 
+  getTransport(id: string): ServerTransport | undefined {
+    return this.transports.get(id);
+  }
+
   getAllServers(): LegacyServerState[] {
     return Array.from(this.servers.values()).map(server => adaptToLegacyState(server));
   }
