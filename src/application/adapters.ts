@@ -31,6 +31,7 @@ export function adaptLegacyConfig(
     enabled: legacyConfig.enabled !== false,
     transport: legacyConfig.transport as "supergateway" | "stdio" | undefined ?? 'supergateway',
     healthCheck: legacyConfig.healthCheck,
+    sessionTimeout: legacyConfig.sessionTimeout,
   };
 }
 
@@ -61,6 +62,9 @@ export function adaptToLegacyState(server: MCPServer): ServerState {
   // healthCheck is optional; only add if defined
   if (domainConfig.healthCheck) {
     legacyConfig.healthCheck = domainConfig.healthCheck;
+  }
+  if (domainConfig.sessionTimeout) {
+    legacyConfig.sessionTimeout = domainConfig.sessionTimeout;
   }
 
   return {
