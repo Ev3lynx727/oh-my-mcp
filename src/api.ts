@@ -294,7 +294,7 @@ export function createManagementAPI(manager: ServerManager) {
         remoteClients.set(id, client);
       }
 
-      router.use(createMcpHost(manager, remoteClients));
+      router.use(createMcpHost(manager, remoteClients, config.mcpHost?.exposeTools ?? true));
       logger.info(
         { remoteBackends: remoteClients.size },
         "MCP Host endpoint mounted at /mcp/server"

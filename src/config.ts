@@ -54,6 +54,7 @@ export const McpHostConfigSchema = z.object({
   enabled: z.boolean().optional().default(false),
   sessionTimeout: z.number().positive().optional().default(300000),
   toolCatalogTtl: z.number().nonnegative().optional().default(60000),
+  exposeTools: z.boolean().optional().default(true),
 });
 
 export const ConfigSchema = z.object({
