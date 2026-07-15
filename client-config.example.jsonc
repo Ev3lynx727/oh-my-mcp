@@ -1,12 +1,14 @@
 {
   // $schema: ./client-config.schema.jsonc
-  // Example oh-my-mcp MCP Host client config (.jsonc).
-  // Drop this into your MCP client's config (e.g. OpenCode opencode.jsonc
-  // `mcpServers`, or Claude Code `claude_desktop_config.json`).
-  // The MCP Host aggregates ALL downstream servers (ark-exec, ark-memory,
-  // ark-resolve, mempalace, ark-gist, ark-delegator, cleancode, context7, exa)
-  // behind one endpoint with `serverId__`-namespaced tools.
+  // Example oh-my-mcp client configs (.jsonc).
+  // Drop one of these into your MCP client's config (e.g. OpenCode
+  // opencode.jsonc `mcpServers`, or Claude Code `claude_desktop_config.json`).
+
   "mcpServers": {
+    // ── Option A: MCP Host (aggregated, recommended) ──────────────────────
+    // One endpoint for ALL downstream servers (ark-exec, ark-memory,
+    // ark-resolve, mempalace, ark-gist, ark-delegator, cleancode, context7, exa)
+    // with `serverId__`-namespaced tools. Requires mcpHost.enabled: true.
     "oh-my-mcp": {
       "type": "streamableHttp",
       "url": "http://localhost:8080/mcp/server",
@@ -14,6 +16,18 @@
         // 64-char hex token from ~/.config/oh-my-mcp/auth-token
         "Authorization": "Bearer <paste-token-from-~/.config/oh-my-mcp/auth-token>"
       }
+    },
+
+    // ── Option B: direct per-server endpoint (no Host) ───────────────────
+    // Connect straight to a supergateway child. Each server has its own port
+    // (ark-exec 8101, ark-memory 8102, ark-resolve 8103, mempalace 8104,
+    // ark-gist 8105, ark-delegator 8106, cleancode 8107). Works when the Host
+    // is disabled. No auth token needed (the gateway auth layer is bypassed).
+    // NOTE: if your client runs on WINDOWS, use the WSL IP, not localhost:
+    //   "url": "http://172.27.57.189:8101/mcp"   (IP rotates on WSL reboot)
+    "ark-exec": {
+      "type": "streamableHttp",
+      "url": "http://localhost:8101/mcp"
     }
   }
 }
