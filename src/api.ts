@@ -4,6 +4,7 @@ import { getConfig, saveRuntimeServer, removeRuntimeServer } from "./config_load
 import { getLogger } from "./logger.js";
 import { ServerConfigSchema } from "./config.js";
 import { createMcpHost } from "./infrastructure/mcp-host/McpHost.js";
+import { RemoteClient, RemoteClientConfig } from "./infrastructure/transports/RemoteClient.js";
 import { ServerIdSchema, ListServersQuerySchema, validationErrorToResponse } from "./api/schemas.js";
 
 const logger = getLogger();
@@ -52,15 +53,20 @@ export function createManagementAPI(manager: ServerManager) {
     );
 
     for (const id of configServers) {
+      const sc = config.servers[id];
       result.push({
         id,
         name: id,
         status: "stopped",
-        port: config.servers[id].port || 0,
+        port: sc.port || 0,
         error: undefined,
         health: undefined,
         startedAt: undefined,
-        config: config.servers[id],
+        config: {
+          command: sc.command,
+          timeout: sc.timeout,
+          enabled: sc.enabled,
+        },
       });
     }
 
@@ -271,8 +277,28 @@ export function createManagementAPI(manager: ServerManager) {
   try {
     const config = getConfig();
     if (config.mcpHost?.enabled) {
-      router.use(createMcpHost(manager));
-      logger.info("MCP Host endpoint mounted at /mcp/server");
+      // Create RemoteClient instances for type: remote servers
+      const remoteClients = new Map<string, RemoteClient>();
+      const remoteEntries = Object.entries(config.servers).filter(
+        ([, sc]) => sc.transport === "remote" && sc.url
+      );
+
+      for (const [id, serverConfig] of remoteEntries) {
+        const client = new RemoteClient({
+          serverId: id,
+          url: serverConfig.url!,
+          headers: serverConfig.headers,
+          timeout: serverConfig.timeout,
+        });
+        // Connect lazily — first request will trigger connect()
+        remoteClients.set(id, client);
+      }
+
+      router.use(createMcpHost(manager, remoteClients));
+      logger.info(
+        { remoteBackends: remoteClients.size },
+        "MCP Host endpoint mounted at /mcp/server"
+      );
     }
   } catch {
     // Config not loaded yet — MCP Host will not be available

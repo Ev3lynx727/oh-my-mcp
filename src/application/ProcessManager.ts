@@ -30,15 +30,15 @@ export class ProcessManager {
 
     let child: ChildProcess;
     if (isStdio) {
-      const cmd = legacyConfig.command;
+      const cmd = legacyConfig.command ?? [];
       logger.info({ server: id, command: cmd }, "Starting stdio server process");
-      child = spawn(cmd[0], cmd.slice(1), {
+      child = spawn(cmd[0] ?? "", cmd.slice(1), {
         env: mergedEnv,
         stdio: ["pipe", "pipe", "pipe"],
         windowsHide: true,
       });
     } else {
-      const stdioCmd = legacyConfig.command.join(" ");
+      const stdioCmd = (legacyConfig.command ?? []).join(" ");
       const sgPath = new URL("../../node_modules/supergateway/dist/index.js", import.meta.url).pathname;
       const args = [
         sgPath,

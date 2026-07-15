@@ -1,7 +1,8 @@
 import express, { Request, Response } from "express";
 import { randomBytes } from "crypto";
 import { ServerManager } from "../../server_manager.js";
-import { SimpleBackendClient } from "../../domain/BackendClient.js";
+import { BackendClient, SimpleBackendClient } from "../../domain/BackendClient.js";
+import { RemoteClient } from "../transports/RemoteClient.js";
 import { ToolCatalog } from "../../application/ToolCatalog.js";
 import { SessionManager } from "../../application/SessionManager.js";
 import { getLogger } from "../../logger.js";
@@ -19,7 +20,10 @@ const logger = getLogger();
  * GET /mcp/server returns 405 (M0 — no SSE stream).
  * Full SSE support planned for M2.
  */
-export function createMcpHost(manager: ServerManager): express.Router {
+export function createMcpHost(
+  manager: ServerManager,
+  remoteClients?: Map<string, RemoteClient>
+): express.Router {
   const router = express.Router();
   const sessionManager = new SessionManager();
   const toolCatalog = new ToolCatalog();
@@ -47,9 +51,9 @@ export function createMcpHost(manager: ServerManager): express.Router {
     try {
       switch (body.method) {
         case "initialize":
-          return await handleInitialize(req, res, manager, sessionManager, toolCatalog, body);
+          return await handleInitialize(req, res, manager, remoteClients, sessionManager, toolCatalog, body);
         case "tools/list":
-          return await handleToolsList(res, manager, sessionManager, toolCatalog, sessionId, body);
+          return await handleToolsList(res, manager, remoteClients, sessionManager, toolCatalog, sessionId, body);
         case "tools/call":
           return await handleToolsCall(res, sessionManager, sessionId, body);
         default:
@@ -77,12 +81,13 @@ async function handleInitialize(
   req: Request,
   res: Response,
   manager: ServerManager,
+  remoteClients: Map<string, RemoteClient> | undefined,
   sessionManager: SessionManager,
   toolCatalog: ToolCatalog,
   body: any
 ): Promise<void> {
-  // Build backend clients for all running stdio servers
-  const backends = new Map<string, SimpleBackendClient>();
+  // Build backend clients for all running servers + remote clients
+  const backends = new Map<string, BackendClient>();
   const servers = manager.getAllServers();
 
   for (const srv of servers) {
@@ -91,6 +96,15 @@ async function handleInitialize(
     const transport = manager.getTransport(srv.id);
     if (domain && transport) {
       backends.set(srv.id, new SimpleBackendClient(srv.id, domain, transport));
+    }
+  }
+
+  // Add remote clients (connected at startup)
+  if (remoteClients) {
+    for (const [id, client] of remoteClients) {
+      if (client.isHealthy()) {
+        backends.set(id, client);
+      }
     }
   }
 
@@ -160,13 +174,14 @@ async function handleInitialize(
 async function handleToolsList(
   res: Response,
   manager: ServerManager,
+  remoteClients: Map<string, RemoteClient> | undefined,
   sessionManager: SessionManager,
   toolCatalog: ToolCatalog,
   sessionId: string | undefined,
   body: any
 ): Promise<void> {
-  // Build fresh backend map from all running servers
-  const backends = new Map<string, SimpleBackendClient>();
+  // Build fresh backend map from all running servers + remote clients
+  const backends = new Map<string, BackendClient>();
   const servers = manager.getAllServers();
 
   for (const srv of servers) {
@@ -175,6 +190,15 @@ async function handleToolsList(
     const transport = manager.getTransport(srv.id);
     if (domain && transport) {
       backends.set(srv.id, new SimpleBackendClient(srv.id, domain, transport));
+    }
+  }
+
+  // Add remote clients
+  if (remoteClients) {
+    for (const [id, client] of remoteClients) {
+      if (client.isHealthy()) {
+        backends.set(id, client);
+      }
     }
   }
 
@@ -221,7 +245,7 @@ async function handleToolsCall(
   const actualToolName = toolName.substring(separatorIndex + 2);
 
   // Resolve session or use all running backends
-  let backends: Map<string, SimpleBackendClient> | undefined;
+  let backends: Map<string, BackendClient> | undefined;
 
   if (sessionId) {
     const session = sessionManager.getSession(sessionId);
@@ -233,7 +257,7 @@ async function handleToolsCall(
       });
       return;
     }
-    backends = session.backends as Map<string, SimpleBackendClient>;
+    backends = session.backends as Map<string, BackendClient>;
   }
 
   if (!backends) {

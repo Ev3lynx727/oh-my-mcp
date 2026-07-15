@@ -103,7 +103,7 @@ function detectServerChanges(
 ): { [key: string]: boolean } {
   const changes: { [key: string]: boolean } = {};
 
-  if (!arraysEqual(oldServer.command, newServer.command)) {
+  if (!arraysEqual(oldServer.command ?? [], newServer.command ?? [])) {
     changes.command = true;
   }
 

@@ -25,12 +25,12 @@ export async function ensureAuthToken(auth?: AuthConfig): Promise<AuthConfig | u
 }
 
 export const ServerConfigSchema = z.object({
-  command: z.array(z.string()),
+  command: z.array(z.string()).optional(),
   env: z.record(z.string()).optional(),
   timeout: z.number().optional().default(60000),
   port: z.number().optional(),
   enabled: z.boolean().optional().default(true),
-  transport: z.enum(["supergateway", "stdio"]).optional().default("supergateway"),
+  transport: z.enum(["supergateway", "stdio", "remote"]).optional().default("supergateway"),
   cacheTtl: z.number().nonnegative().optional(),
   healthCheck: z
     .object({
@@ -40,6 +40,8 @@ export const ServerConfigSchema = z.object({
     })
     .optional(),
   sessionTimeout: z.number().positive().optional(),
+  url: z.string().url().optional(),
+  headers: z.record(z.string()).optional(),
 });
 
 export const AuthConfigSchema = z.object({

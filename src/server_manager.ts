@@ -79,6 +79,12 @@ export class ServerManager {
   }
 
   async startServer(id: string, legacyConfig: LegacyServerConfig): Promise<void> {
+    // Remote servers don't need process management — handled by MCP Host via RemoteClient
+    if (legacyConfig.transport === "remote") {
+      logger.info({ server: id, url: legacyConfig.url }, "Remote server — skipping process start");
+      return;
+    }
+
     const existingDomain = this.servers.get(id);
     if (existingDomain?.isRunning()) {
       logger.warn({ server: id }, "Server already running");
