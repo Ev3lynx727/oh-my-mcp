@@ -105,8 +105,9 @@ servers:
   });
 
   it('gateway returns 501 for supergateway-transport servers (use MCP Host on management port)', async () => {
-    // Supergateway (streamableHttp) servers are not proxied by the 8090 gateway —
-    // clients should use the MCP Host at http://localhost:<managementPort>/mcp/server.
+    // The 8090 gateway is a stateless forwarder and cannot manage the
+    // initialize→tools/list session lifecycle that stateful streamableHttp
+    // requires, so it 501s and points clients to the MCP Host on 8080.
     const body = {
       jsonrpc: '2.0',
       id: 1,

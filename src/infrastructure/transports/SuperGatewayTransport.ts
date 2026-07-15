@@ -160,6 +160,10 @@ export class SuperGatewayTransport implements ServerTransport {
   }
 
   canProxy(): boolean {
+    // The 8090 gateway is a stateless forwarder and cannot manage the
+    // initialize→tools/list→tools/call session lifecycle that stateful
+    // streamableHttp requires. Clients must use the MCP Host on the
+    // management port (/mcp/server) instead. (stdio servers ARE proxied.)
     return false;
   }
 
