@@ -90,6 +90,13 @@ export class SuperGatewayTransport implements ServerTransport {
     }
   }
 
+  // Per-request timeout. Distinct from the stateful session timeout
+  // (server.getTimeout(), 10-15min) — a laggy backend's internal API
+  // must fail fast, not hang the whole session for the session timeout.
+  // ponytail: 15s is generous for a local supergateway child; tune down
+  // if internal APIs are expected to be snappier.
+  private static readonly REQUEST_TIMEOUT_MS = 15000;
+
   async sendRequest(server: MCPServer, request: any): Promise<any> {
     const port = server.getPort();
     if (!port) {
@@ -117,7 +124,7 @@ export class SuperGatewayTransport implements ServerTransport {
     const response = await this.httpClient.post(
       `http://127.0.0.1:${port}/mcp`,
       request,
-      { timeout: server.getTimeout(), headers }
+      { timeout: SuperGatewayTransport.REQUEST_TIMEOUT_MS, headers }
     );
 
     if (!response.ok) {

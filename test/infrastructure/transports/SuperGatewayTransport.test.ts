@@ -90,7 +90,7 @@ describe('SuperGatewayTransport', () => {
     const req = { jsonrpc: '2.0', id: 1, method: 'test', params: {} };
     const result = await transport.sendRequest(server, req);
     expect(result).toEqual(responseData);
-    expect(mockPost).toHaveBeenCalledWith('http://127.0.0.1:1234/mcp', req, { timeout: 60000, headers: { Accept: "application/json, text/event-stream" } });
+    expect(mockPost).toHaveBeenCalledWith('http://127.0.0.1:1234/mcp', req, { timeout: 15000, headers: { Accept: "application/json, text/event-stream" } });
   });
 
   it('sendRequest captures and sends session ID header', async () => {
