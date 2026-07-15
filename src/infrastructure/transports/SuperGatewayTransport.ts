@@ -6,6 +6,23 @@ import { ServerTransport } from "../../domain/Transport.js";
 const logger = getLogger();
 
 /**
+ * Parse an MCP response that may be raw JSON or SSE-framed.
+ * supergateway streamableHttp returns `event: message\ndata: {json}\n\n`.
+ */
+export function parseMcpResponse(text: string): any {
+  const trimmed = text.trim();
+  if (!trimmed.includes("data:")) {
+    return JSON.parse(trimmed);
+  }
+  const data = trimmed
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trim())
+    .join("");
+  return JSON.parse(data);
+}
+
+/**
  * SuperGatewayTransport communicates with an MCP server via HTTP.
  *
  * Assumes the server is already running (started by ProcessManager) and listening on a port.
@@ -16,8 +33,21 @@ const logger = getLogger();
  */
 export class SuperGatewayTransport implements ServerTransport {
   private sessionId: string | null = null;
+  private sessionStore?: {
+    get: (id: string) => string | undefined;
+    set: (id: string, sid: string | null) => void;
+  };
+  private serverId?: string;
 
-  constructor(private httpClient: HttpClient) { }
+  constructor(
+    private httpClient: HttpClient,
+    sessionStore?: {
+      get: (id: string) => string | undefined;
+      set: (id: string, sid: string | null) => void;
+    }
+  ) {
+    this.sessionStore = sessionStore;
+  }
 
   async isReady(server: MCPServer, timeoutMs?: number): Promise<boolean> {
     const port = server.getPort();
@@ -66,8 +96,21 @@ export class SuperGatewayTransport implements ServerTransport {
       throw new Error(`Server ${server.id} has no port assigned`);
     }
 
-    const headers: Record<string, string> = {};
-    if (this.sessionId) {
+    // Resolve session from the shared store (set during initialize)
+    if (this.sessionStore && this.serverId) {
+      this.sessionId = this.sessionStore.get(this.serverId) ?? null;
+    }
+
+    // initialize starts a fresh session — never send a stale session id
+    const isInitialize = request?.method === "initialize";
+    if (isInitialize) {
+      this.sessionId = null;
+    }
+
+    const headers: Record<string, string> = {
+      Accept: "application/json, text/event-stream",
+    };
+    if (this.sessionId && !isInitialize) {
       headers["mcp-session-id"] = this.sessionId;
     }
 
@@ -82,6 +125,9 @@ export class SuperGatewayTransport implements ServerTransport {
       // Session expired or invalid — reset so next call re-initializes
       if (response.status === 400) {
         this.sessionId = null;
+        if (this.sessionStore && this.serverId) {
+          this.sessionStore.set(this.serverId, null);
+        }
       }
       throw new Error(`HTTP ${response.status}: ${text}`);
     }
@@ -90,11 +136,15 @@ export class SuperGatewayTransport implements ServerTransport {
     const sid = response.headers?.get?.("mcp-session-id");
     if (sid) {
       this.sessionId = sid;
+      if (this.sessionStore && this.serverId) {
+        this.sessionStore.set(this.serverId, sid);
+      }
     }
 
-    // Stateful streamableHttp returns raw JSON-RPC — no SSE wrapping
+    // supergateway streamableHttp returns SSE-framed responses
+    // (event: message\ndata: {json}). Raw JSON is also handled as fallback.
     const text = await response.text();
-    return JSON.parse(text);
+    return parseMcpResponse(text);
   }
 
   getEndpoint(server: MCPServer): string {
@@ -107,5 +157,10 @@ export class SuperGatewayTransport implements ServerTransport {
 
   usesPort(): boolean {
     return true;
+  }
+
+  /** Bind this transport to a specific server id for session-store lookup */
+  setServerId(id: string): void {
+    this.serverId = id;
   }
 }

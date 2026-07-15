@@ -30,6 +30,10 @@ export class ServerManager {
   private bridgedServers: Set<string> = new Set();
   private mcpCache: Map<string, { data: any; expires: number }> = new Map();
   private cacheTtls: Map<string, number> = new Map();
+  // Per-server supergateway streamableHttp session ids (stateful mode).
+  // Shared across all SimpleBackendClient instances so a session established
+  // during initialize is reused for tools/list, tools/call, etc.
+  private sessionIds: Map<string, string> = new Map();
 
   constructor(
     eventBus: EventBus,
@@ -79,6 +83,12 @@ export class ServerManager {
   }
 
   async startServer(id: string, legacyConfig: LegacyServerConfig): Promise<void> {
+    // Remote servers don't need process management — handled by MCP Host via RemoteClient
+    if (legacyConfig.transport === "remote") {
+      logger.info({ server: id, url: legacyConfig.url }, "Remote server — skipping process start");
+      return;
+    }
+
     const existingDomain = this.servers.get(id);
     if (existingDomain?.isRunning()) {
       logger.warn({ server: id }, "Server already running");
@@ -165,7 +175,7 @@ export class ServerManager {
 
       // Create transport and assign port to server before readiness check
       const domainConfig = server.getConfiguration();
-      const transport = this.transportFactory.createFromConfig(domainConfig.transport);
+      const transport = this.transportFactory.createFromConfig(domainConfig.transport, id);
       this.transports.set(id, transport);
       server.setAllocatedPort(port);
 
@@ -219,6 +229,7 @@ export class ServerManager {
 
     // Clean up transport, cache, and ttl config
     this.transports.delete(id);
+    this.sessionIds.delete(id);
     this.invalidateServerCache(id);
     this.cacheTtls.delete(id);
 
@@ -265,6 +276,18 @@ export class ServerManager {
 
   getTransport(id: string): ServerTransport | undefined {
     return this.transports.get(id);
+  }
+
+  getSessionId(id: string): string | undefined {
+    return this.sessionIds.get(id);
+  }
+
+  setSessionId(id: string, sid: string | null): void {
+    if (sid === null) {
+      this.sessionIds.delete(id);
+    } else {
+      this.sessionIds.set(id, sid);
+    }
   }
 
   getAllServers(): LegacyServerState[] {

@@ -72,10 +72,11 @@ src/
 │   ├── metrics/
 │   │   ├── metrics.ts           prom-client counters/gauges/histograms
 │   │   └── middleware.ts        Express metrics middleware
-│   └── transports/
-│       ├── TransportFactory.ts  Creates SuperGatewayTransport or DirectStdioTransport
-│       ├── SuperGatewayTransport.ts  HTTP transport for supergateway-bridged servers
-│       └── DirectStdioTransport.ts   JSON-RPC over stdin/stdout — no supergateway
+│       └── transports/
+│           ├── TransportFactory.ts  Creates SuperGatewayTransport or DirectStdioTransport
+│           ├── SuperGatewayTransport.ts  HTTP transport for supergateway-bridged servers
+│           ├── DirectStdioTransport.ts   JSON-RPC over stdin/stdout — no supergateway
+│           └── RemoteClient.ts          Native HTTP MCP client — replaces mcp-remote-bridge.sh (M1)
 ├── middleware/
 │   ├── audit.ts                 POST audit logging
 │   ├── error-handler.ts         Centralized sanitized JSON error handler
@@ -148,6 +149,7 @@ Server lifecycle
 |------|---------------|------|---------|----------|
 | `supergateway` | supergateway HTTP→SSE→stdio | Allocated (8100+) | ~+2ms per request | Remote clients (Windows→WSL, LAN, VPS) |
 | `stdio` | None — direct JSON-RPC | 0 (no port) | ~4ms local | Local ark-* servers on the same machine |
+| `remote` | None — raw fetch to cloud URL | None | ~1-2ms local + cloud latency | Cloud MCP APIs (context7, exa) — replaces mcp-remote-bridge |
 
 See `docs/transport-modes.md` for full latency benchmarks, serialization analysis, and migration guide.
 
@@ -190,6 +192,12 @@ SessionManager:                   (M0)
 
 McpSessionContext:                (M0)
   { id, backends: Map<string, BackendClient>, createdAt, lastActive, timeoutMs }
+
+RemoteClient:                     (M1)
+  BackendClient impl using raw fetch
+  Config: { serverId, url, headers?, timeout? }
+  Supports {env:VAR} header interpolation
+  skip supergateway entirely — direct POST to remote MCP endpoint
 
 Config (YAML):
   servers: Record<id, ServerConfig>
@@ -240,7 +248,7 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 - Per-client log/cache isolation (CLIENT_TAG) — **done** (ark-exec partitioned by wsl/windows/unknown)
 - Dockerfile — **not committed**
 - WebSocket / OAuth2 / React UI — **roadmap**
-- M1: Native SSE/HTTP backends — **planned**
+- M1: Native remote backends via RemoteClient — **done**
 - M2: Resource/prompt aggregation — **planned**
 - M3: Health/notify — **planned**
 
@@ -262,8 +270,9 @@ Deprecated items identified and resolved:
 |--------|---------|-------|
 | ae09dd9 | Stateful supergateway — streamableHttp with Mcp-Session-Id, sessionTimeout | config.ts, ProcessManager.ts, SuperGatewayTransport.ts, HttpClient.ts, adapters.ts |
 | 8cdb4f7 | **M0 MCP Host core** — POST /mcp/server, BackendClient, ToolCatalog, SessionManager, McpHost router | BackendClient.ts, ToolCatalog.ts, SessionManager.ts, McpHost.ts, config.ts, api.ts, server_manager.ts |
+| TBD | **M1 Native remote transport** — RemoteClient (raw fetch), config type: remote, delete mcp-remote-bridge | RemoteClient.ts, api.ts, server_manager.ts, ProcessManager.ts, config.yaml |
 
-26 new tests (ToolCatalog 11, SessionManager 10, McpHost 5). 204 total pass.
+30 test files, 215 total pass (31 files, 215 tests for M1).
 
 ## Files to Edit
 
