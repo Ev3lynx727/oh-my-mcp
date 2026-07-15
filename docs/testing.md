@@ -30,26 +30,33 @@ Key suites:
 
 ## 2. Live MCP Host smoke test (M0)
 
-The MCP Host endpoint lives on the **management port (8080)** at
-`POST /mcp/server`. It is mounted only when `mcpHost.enabled: true` in config.
+The MCP Host endpoint lives on the **management port** at `POST /mcp/server`.
+It is mounted only when `mcpHost.enabled: true` in config.
+
+> **Port note:** the documented default is `8080`, but the live WSL deployment
+> runs on **`8081`** — Windows MiniTool `MTAgentService` held `0.0.0.0:8080`, so
+> WSL skipped the 8080 forward mapping. Use `8081` for this host. See
+> `workspace/oh-my-mcp-development/testing/001-testing-in-windows.md` for the
+> full Windows→WSL connectivity fix.
 
 ```bash
 TOKEN=$(head -c 64 ~/.config/oh-my-mcp/auth-token)
+PORT=8081   # live; use 8080 if your deployment kept the default
 
 # 1. initialize — returns a Mcp-Session-Id header
-curl -s -D /tmp/h.txt http://localhost:8080/mcp/server \
+curl -s -D /tmp/h.txt http://localhost:$PORT/mcp/server \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'
 SID=$(grep -i mcp-session-id /tmp/h.txt | tr -d '\r' | awk '{print $2}')
 
 # 2. tools/list — aggregated catalog, namespaced by server
-curl -s http://localhost:8080/mcp/server \
+curl -s http://localhost:$PORT/mcp/server \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -H "Mcp-Session-Id: $SID" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 
 # 3. tools/call — route by serverId__toolName
-curl -s http://localhost:8080/mcp/server \
+curl -s http://localhost:$PORT/mcp/server \
   -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -H "Mcp-Session-Id: $SID" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"ark-exec__get_cache_stats","arguments":{}}}'
@@ -86,7 +93,7 @@ Verify they are reachable through the host:
 
 ```bash
 # after initialize + tools/list above, confirm remote tools are present
-curl -s http://localhost:8080/mcp/server -H "Authorization: Bearer $TOKEN" \
+curl -s http://localhost:$PORT/mcp/server -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" -H "Mcp-Session-Id: $SID" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
   | python3 -c "import sys,json; t=json.load(sys.stdin)['result']['tools']; \
@@ -104,7 +111,7 @@ host endpoint. The host speaks streamableHttp, so the client must use
 `--streamableHttp`, not `--sse`:
 
 ```text
-supergateway --streamableHttp http://localhost:8080/mcp/server
+supergateway --streamableHttp http://localhost:8081/mcp/server
 ```
 
 For per-server direct connections (bypassing the host), each downstream server

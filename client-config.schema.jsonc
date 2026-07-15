@@ -31,7 +31,7 @@
           "type": "string",
           "format": "uri",
           "description": "MCP Host endpoint. Single aggregated endpoint for all downstream servers.",
-          "default": "http://localhost:8080/mcp/server"
+          "default": "http://localhost:8081/mcp/server"
         },
         "headers": {
           "type": "object",

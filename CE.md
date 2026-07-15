@@ -18,8 +18,12 @@ Windows OpenCode/Cursor/Claude Desktop  (runs on WINDOWS, not WSL)
   │        from `wsl hostname -I`; rotates on reboot) OR open the Windows
   │        firewall for the vEthernet adapter. A client running INSIDE WSL
   │        uses `localhost` normally.
+  │
+  │  LIVE PORT: managementPort is 8081 (not default 8080). Windows MiniTool
+  │  MTAgentService held 0.0.0.0:8080, so WSL skipped the 8080 forward mapping.
+  │  Moved daemon to 8081 so WSL forwards it. 8080 is dead on this host.
 
-  ├─ HTTP → http://<host>:8080/mcp/server → oh-my-mcp MCP Host → all backends
+  ├─ HTTP → http://<host>:8081/mcp/server → oh-my-mcp MCP Host → all backends
   │         (initialize, tools/list, tools/call — session-tracked via Mcp-Session-Id)
   │         Requires mcpHost.enabled: true + Bearer auth.
   │
@@ -30,11 +34,12 @@ Windows OpenCode/Cursor/Claude Desktop  (runs on WINDOWS, not WSL)
   │         No auth (bypasses gateway auth layer). Works when mcpHost disabled.
 
 oh-my-mcp in WSL
-  ├─ port 8080: Management API (GET /servers, POST /servers/:id/start, etc.)
+  ├─ port 8081: Management API (GET /servers, POST /servers/:id/start, etc.)
   │             + POST /mcp/server — M0 MCP Host (when mcpHost.enabled: true)
+  │             (default config.example.yaml says 8080; live deployment uses 8081)
   ├─ port 8090: Legacy gateway (deprecated)
   │             POST /mcp/:serverId → proxies stdio servers; returns 501 for
-  │             supergateway servers (points client to the MCP Host on 8080).
+  │             supergateway servers (points client to the MCP Host on 8081).
   └─ port 8101-8107: supergateway children (streamableHttp stateful) — direct per-server /mcp
 ```
 
@@ -102,7 +107,7 @@ src/
 |----------|--------|-----|
 | MCP Host | `POST /mcp/server` single endpoint (M0) | Client sends one initialize → gets all tools across all backends. Host handles routing internally. Session-tracked via Mcp-Session-Id. |
 | Transport | supergateway (streamableHttp stateful) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients (session-persistent child via `Mcp-Session-Id`); DirectStdioTransport for local servers (~4ms, one less process). |
-| Two apps | Management (8080) + Gateway (8090) | Gateway (8090) proxies **stdio** transport servers (ark-*) via JSON-RPC over stdin/stdout. Supergateway-mode servers are NOT proxied by the gateway — it returns 501 pointing to the MCP Host on 8080. Supergateway children are reached directly on 8101-8107 (`/mcp`). |
+| Two apps | Management (8081 live / 8080 default) + Gateway (8090) | Gateway (8090) proxies **stdio** transport servers (ark-*) via JSON-RPC over stdin/stdout. Supergateway-mode servers are NOT proxied by the gateway — it returns 501 pointing to the MCP Host on 8081. Supergateway children are reached directly on 8101-8107 (`/mcp`). |
 | Domain model | MCPServer state machine | Pure domain with enforced state transitions (STOPPED→STARTING→RUNNING→STOPPING→ERROR). Testable without spawning processes. |
 | DI | Manual container (70 lines) | No decorators/reflection. Avoids tsyringe/inversify dependency. |
 | Legacy adapters | adapters.ts bridges two eras | Mid-migration from flat ServerState to domain MCPServer. Deferred — works, tested, no behavioral benefit to removing. |
@@ -228,7 +233,7 @@ Config (YAML):
 - **Cache TTL 60s default** — `proxyMCPRequest` caches `tools/list`, `resources/list`, `prompts/list` responses by server id. Per-server `cacheTtl` in config.yaml. Evicted on server stop/restart. Cache partitioned by server id only — not by request arguments (list methods are argument-free).
 - **Stateful sessions** — supergateway runs with `--outputTransport streamableHttp --stateful`. Child process persists per `Mcp-Session-Id`, eliminating per-request spawn overhead and ~32ms SSE→MCP conversion. Session timeout via `sessionTimeout` config.
 - **supergateway children expose `/mcp`** — each supergateway child listens on its own port (8101-8107) and serves streamableHttp at `/mcp`. There is NO `/sse` endpoint (SSE mode was removed in v1.1.0). Direct client connection: `http://<host>:8101/mcp`. No auth (bypasses the gateway auth layer).
-- **8090 legacy gateway returns 501 for supergateway** — `POST /mcp/:serverId` proxies only `stdio` servers. For `supergateway` servers it returns 501 pointing the client to the MCP Host on 8080. This is by design (the gateway is stateless and cannot own the streamableHttp session lifecycle). Use 8080 `/mcp/server` (Host) or 810x `/mcp` (direct) instead.
+- **8090 legacy gateway returns 501 for supergateway** — `POST /mcp/:serverId` proxies only `stdio` servers. For `supergateway` servers it returns 501 pointing the client to the MCP Host on 8081 (live) / 8080 (default). This is by design (the gateway is stateless and cannot own the streamableHttp session lifecycle). Use 8081 `/mcp/server` (Host) or 810x `/mcp` (direct) instead.
 - **ToolCatalog TTL 60s** — tools/list across all backends refreshed every 60s. Force-refresh on any client call. Degraded mode if a backend is unreachable (partial catalog served).
 - **Session TTL 300s default** — sessions expire after 5 min idle. Background cleanup runs every 30s. Client must send Mcp-Session-Id header on every request after initialize.
 - **No WS streaming** — roadmap item.

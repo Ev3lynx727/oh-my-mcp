@@ -11,7 +11,7 @@
     // with `serverId__`-namespaced tools. Requires mcpHost.enabled: true.
     "oh-my-mcp": {
       "type": "streamableHttp",
-      "url": "http://localhost:8080/mcp/server",
+      "url": "http://localhost:8081/mcp/server",
       "headers": {
         // 64-char hex token from ~/.config/oh-my-mcp/auth-token
         "Authorization": "Bearer <paste-token-from-~/.config/oh-my-mcp/auth-token>"
