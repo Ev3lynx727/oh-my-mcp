@@ -2,7 +2,7 @@
 
 ## Identity
 
-**Bare-metal first.** All backends (ark-*, MCP servers) run on WSL as systemd user services. Zero cloud dependencies. External clients (Windows OpenCode, Claude Desktop, Cursor, Windsurf) connect via SSE or HTTP.
+**Bare-metal first.** All backends (ark-*, MCP servers) run on WSL as systemd user services. Zero cloud dependencies. External clients (Windows OpenCode, Claude Desktop, Cursor, Windsurf) connect via streamableHttp (stateful MCP over HTTP).
 
 MCP Host (M0) + HTTP gateway + process manager. Single endpoint (`POST /mcp/server`) aggregates tools/list across all backends with session tracking. Legacy per-server proxy (`POST /mcp/:serverId`) preserved for backward compatibility. Spawns stdio MCP servers via supergateway (stateful streamableHttp) or DirectStdioTransport (native JSON-RPC over stdin/stdout). For Claude Desktop, Cursor, Windsurf sharing the same MCP server pool.
 
@@ -10,22 +10,32 @@ MCP Host (M0) + HTTP gateway + process manager. Single endpoint (`POST /mcp/serv
 
 ## Client connectivity
 
+Three access tiers. All MCP traffic is **streamableHttp** (stateful, `Mcp-Session-Id`) — SSE mode was removed in v1.1.0.
+
 ```
-Windows OpenCode/Cursor/Claude Desktop
-  │
-  ├─ HTTP → http://localhost:8090/mcp/server → oh-my-mcp MCP Host → all backends
+Windows OpenCode/Cursor/Claude Desktop  (runs on WINDOWS, not WSL)
+  │  NOTE: Windows `localhost` ≠ WSL2. Use the WSL IP (e.g. 172.27.57.189,
+  │        from `wsl hostname -I`; rotates on reboot) OR open the Windows
+  │        firewall for the vEthernet adapter. A client running INSIDE WSL
+  │        uses `localhost` normally.
+
+  ├─ HTTP → http://<host>:8080/mcp/server → oh-my-mcp MCP Host → all backends
   │         (initialize, tools/list, tools/call — session-tracked via Mcp-Session-Id)
+  │         Requires mcpHost.enabled: true + Bearer auth.
   │
-  ├─ SSE → http://localhost:8101/sse → supergateway → ark-exec
-  ├─ SSE → http://localhost:8102/sse → supergateway → ark-memory
-  └─ SSE → http://localhost:8103/sse → supergateway → ark-resolve
+  ├─ HTTP → http://<host>:8101/mcp → supergateway child → ark-exec   (direct, no Host)
+  ├─ HTTP → http://<host>:8102/mcp → supergateway child → ark-memory
+  ├─ HTTP → http://<host>:8103/mcp → supergateway child → ark-resolve
+  ├─ ... 8104 mempalace, 8105 ark-gist, 8106 ark-delegator, 8107 cleancode
+  │         No auth (bypasses gateway auth layer). Works when mcpHost disabled.
 
 oh-my-mcp in WSL
   ├─ port 8080: Management API (GET /servers, POST /servers/:id/start, etc.)
-  ├─ port 8090: Gateway + MCP Host
-  │    ├─ POST /mcp/server — M0 MCP Host (new, session-tracked)
-  │    └─ POST /mcp/:serverId — legacy proxy (deprecated, backward-compatible)
-  └─ port 8101-8103: supergateway SSE per server (supergateway-mode only)
+  │             + POST /mcp/server — M0 MCP Host (when mcpHost.enabled: true)
+  ├─ port 8090: Legacy gateway (deprecated)
+  │             POST /mcp/:serverId → proxies stdio servers; returns 501 for
+  │             supergateway servers (points client to the MCP Host on 8080).
+  └─ port 8101-8107: supergateway children (streamableHttp stateful) — direct per-server /mcp
 ```
 
 ## Architecture
@@ -92,7 +102,7 @@ src/
 |----------|--------|-----|
 | MCP Host | `POST /mcp/server` single endpoint (M0) | Client sends one initialize → gets all tools across all backends. Host handles routing internally. Session-tracked via Mcp-Session-Id. |
 | Transport | supergateway (streamableHttp stateful) or DirectStdioTransport (native stdio) | Transport per server config. supergateway for remote clients (session-persistent child via `Mcp-Session-Id`); DirectStdioTransport for local servers (~4ms, one less process). |
-| Two apps | Management (8080) + Gateway (8090) | Gateway proxies stdio transport servers (ark-*) via JSON-RPC over stdin/stdout. Supergateway-mode servers proxy through the gateway too (stateful streamableHttp JSON-RPC). |
+| Two apps | Management (8080) + Gateway (8090) | Gateway (8090) proxies **stdio** transport servers (ark-*) via JSON-RPC over stdin/stdout. Supergateway-mode servers are NOT proxied by the gateway — it returns 501 pointing to the MCP Host on 8080. Supergateway children are reached directly on 8101-8107 (`/mcp`). |
 | Domain model | MCPServer state machine | Pure domain with enforced state transitions (STOPPED→STARTING→RUNNING→STOPPING→ERROR). Testable without spawning processes. |
 | DI | Manual container (70 lines) | No decorators/reflection. Avoids tsyringe/inversify dependency. |
 | Legacy adapters | adapters.ts bridges two eras | Mid-migration from flat ServerState to domain MCPServer. Deferred — works, tested, no behavioral benefit to removing. |
@@ -147,7 +157,7 @@ Server lifecycle
 
 | Mode | Bridge process | Port | Latency | Use case |
 |------|---------------|------|---------|----------|
-| `supergateway` | supergateway HTTP→SSE→stdio | Allocated (8100+) | ~+2ms per request | Remote clients (Windows→WSL, LAN, VPS) |
+| `supergateway` | supergateway stdio→streamableHttp (stateful) | Allocated (8100+) | ~+2ms per request | Remote clients (Windows→WSL, LAN, VPS); direct `/mcp` per server on 8101-8107 |
 | `stdio` | None — direct JSON-RPC | 0 (no port) | ~4ms local | Local ark-* servers on the same machine |
 | `remote` | None — raw fetch to cloud URL | None | ~1-2ms local + cloud latency | Cloud MCP APIs (context7, exa) — replaces mcp-remote-bridge |
 
@@ -217,6 +227,8 @@ Config (YAML):
 - **Gateway timeout 60s** — hardcoded in http.request options and timeout middleware.
 - **Cache TTL 60s default** — `proxyMCPRequest` caches `tools/list`, `resources/list`, `prompts/list` responses by server id. Per-server `cacheTtl` in config.yaml. Evicted on server stop/restart. Cache partitioned by server id only — not by request arguments (list methods are argument-free).
 - **Stateful sessions** — supergateway runs with `--outputTransport streamableHttp --stateful`. Child process persists per `Mcp-Session-Id`, eliminating per-request spawn overhead and ~32ms SSE→MCP conversion. Session timeout via `sessionTimeout` config.
+- **supergateway children expose `/mcp`** — each supergateway child listens on its own port (8101-8107) and serves streamableHttp at `/mcp`. There is NO `/sse` endpoint (SSE mode was removed in v1.1.0). Direct client connection: `http://<host>:8101/mcp`. No auth (bypasses the gateway auth layer).
+- **8090 legacy gateway returns 501 for supergateway** — `POST /mcp/:serverId` proxies only `stdio` servers. For `supergateway` servers it returns 501 pointing the client to the MCP Host on 8080. This is by design (the gateway is stateless and cannot own the streamableHttp session lifecycle). Use 8080 `/mcp/server` (Host) or 810x `/mcp` (direct) instead.
 - **ToolCatalog TTL 60s** — tools/list across all backends refreshed every 60s. Force-refresh on any client call. Degraded mode if a backend is unreachable (partial catalog served).
 - **Session TTL 300s default** — sessions expire after 5 min idle. Background cleanup runs every 30s. Client must send Mcp-Session-Id header on every request after initialize.
 - **No WS streaming** — roadmap item.
@@ -228,7 +240,7 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 
 ## Current State
 
-- MCP Host core (POST /mcp/server) — **done** (M0: 204 tests pass)
+- MCP Host core (POST /mcp/server) — **done** (M0: 218 tests pass across suite)
   - BackendClient interface + SimpleBackendClient — done
   - ToolCatalog: aggregated tools/list with serverId__ namespacing, 60s TTL — done
   - SessionManager: Mcp-Session-Id lifecycle, TTL expiry, background cleanup — done
@@ -248,7 +260,7 @@ Not a plugin system — this is an MCP gateway, not an OpenCode plugin. MCP serv
 - Per-client log/cache isolation (CLIENT_TAG) — **done** (ark-exec partitioned by wsl/windows/unknown)
 - Dockerfile — **not committed**
 - WebSocket / OAuth2 / React UI — **roadmap**
-- M1: Native remote backends via RemoteClient — **done**
+- M1: Native remote backends via RemoteClient — **done** (replaces mcp-remote-bridge.sh; context7/exa on `transport: remote`)
 - M2: Resource/prompt aggregation — **planned**
 - M3: Health/notify — **planned**
 
@@ -270,9 +282,9 @@ Deprecated items identified and resolved:
 |--------|---------|-------|
 | ae09dd9 | Stateful supergateway — streamableHttp with Mcp-Session-Id, sessionTimeout | config.ts, ProcessManager.ts, SuperGatewayTransport.ts, HttpClient.ts, adapters.ts |
 | 8cdb4f7 | **M0 MCP Host core** — POST /mcp/server, BackendClient, ToolCatalog, SessionManager, McpHost router | BackendClient.ts, ToolCatalog.ts, SessionManager.ts, McpHost.ts, config.ts, api.ts, server_manager.ts |
-| TBD | **M1 Native remote transport** — RemoteClient (raw fetch), config type: remote, delete mcp-remote-bridge | RemoteClient.ts, api.ts, server_manager.ts, ProcessManager.ts, config.yaml |
+| a2a4f62 | **M1 Native remote transport** — RemoteClient (raw fetch), config type: remote, delete mcp-remote-bridge | RemoteClient.ts, RemoteClient.test.ts, api.ts, server_manager.ts, ProcessManager.ts, ConfigDiff.ts, config.yaml |
 
-30 test files, 215 total pass (31 files, 215 tests for M1).
+31 test files, 218 tests pass (M1: 11 RemoteClient tests added; M0 supergateway SSE-framing fix updated 2 transport assertions + added 1).
 
 ## Files to Edit
 
