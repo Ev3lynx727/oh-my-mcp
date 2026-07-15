@@ -48,9 +48,16 @@ export const AuthConfigSchema = z.object({
   autoGenerate: z.boolean().optional(),
 });
 
+export const McpHostConfigSchema = z.object({
+  enabled: z.boolean().optional().default(false),
+  sessionTimeout: z.number().positive().optional().default(300000),
+  toolCatalogTtl: z.number().nonnegative().optional().default(60000),
+});
+
 export const ConfigSchema = z.object({
   servers: z.record(ServerConfigSchema),
   auth: AuthConfigSchema.optional(),
+  mcpHost: McpHostConfigSchema.optional(),
   managementPort: z.number().optional().default(8080),
   gatewayPort: z.number().optional().default(8090),
   logLevel: z.enum(["debug", "info", "warn", "error"]).optional().default("info"),
