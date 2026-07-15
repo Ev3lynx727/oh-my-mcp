@@ -46,7 +46,10 @@ export class SimpleBackendClient implements BackendClient {
   }
 
   isHealthy(): boolean {
-    return this.server.isRunning() && this.server.canAcceptRequests();
+    // The MCP Host attempts requests directly; degraded mode handles failures.
+    // We only require the server process to be running — we don't gate on the
+    // periodic HealthChecker state (which may be stale or absent at request time).
+    return this.server.isRunning();
   }
 
   async close(): Promise<void> {

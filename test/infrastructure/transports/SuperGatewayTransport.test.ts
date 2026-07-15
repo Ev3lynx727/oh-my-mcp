@@ -86,7 +86,7 @@ describe('SuperGatewayTransport', () => {
     const req = { jsonrpc: '2.0', id: 1, method: 'test', params: {} };
     const result = await transport.sendRequest(server, req);
     expect(result).toEqual(responseData);
-    expect(mockPost).toHaveBeenCalledWith('http://127.0.0.1:1234/mcp', req, { timeout: 60000, headers: {} });
+    expect(mockPost).toHaveBeenCalledWith('http://127.0.0.1:1234/mcp', req, { timeout: 60000, headers: { Accept: "application/json, text/event-stream" } });
   });
 
   it('sendRequest captures and sends session ID header', async () => {
@@ -107,10 +107,20 @@ describe('SuperGatewayTransport', () => {
     await transport.sendRequest(server, { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} });
     await transport.sendRequest(server, { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
 
-    // First call: no session header
-    expect(mockPost.mock.calls[0][2].headers).toEqual({});
-    // Second call: includes captured session ID
-    expect(mockPost.mock.calls[1][2].headers).toEqual({ 'mcp-session-id': 'abc-123' });
+    // First call: Accept header, no session id yet
+    expect(mockPost.mock.calls[0][2].headers).toEqual({ Accept: "application/json, text/event-stream" });
+    // Second call: includes captured session ID (and Accept)
+    expect(mockPost.mock.calls[1][2].headers).toEqual({ Accept: "application/json, text/event-stream", 'mcp-session-id': 'abc-123' });
+  });
+
+  it('sendRequest parses SSE-framed responses (event: message\\ndata: ...)', async () => {
+    const payload = { jsonrpc: '2.0', result: { protocolVersion: '2024-11-05' } };
+    const sseBody = `event: message\ndata: ${JSON.stringify(payload)}\n\n`;
+    mockPost.mockResolvedValue({ ok: true, status: 200, text: async () => sseBody, headers: { get: () => null } });
+    const server = makeServer(1234);
+    const req = { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} };
+    const result = await transport.sendRequest(server, req);
+    expect(result).toEqual(payload);
   });
 
   it('sendRequest throws on non-ok with JSON body', async () => {

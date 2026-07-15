@@ -45,7 +45,10 @@ export class AppModule {
         const processManager = c.resolve(ProcessManager) as ProcessManager;
         const transportFactory = c.resolve(TransportFactory) as TransportFactory;
         // basePort could be configurable; for now use 8100 default
-        return new ServerManager(eventBus, portAllocator, processManager, transportFactory, 8100);
+        const manager = new ServerManager(eventBus, portAllocator, processManager, transportFactory, 8100);
+        // Wire session store into transports (resolves circular dep)
+        transportFactory.setServerManager(manager);
+        return manager;
       },
       singleton: true,
     });

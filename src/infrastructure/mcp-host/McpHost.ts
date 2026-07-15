@@ -117,15 +117,17 @@ async function handleInitialize(
     return;
   }
 
-  // Fan-out initialize to all backends
+  // Fan-out initialize to all backends. The host initializes each backend on
+  // its own behalf, so it always sends a complete params with clientInfo —
+  // the MCP SDK rejects initialize requests missing clientInfo with HTTP 400.
   const initRequest = {
     jsonrpc: "2.0",
     id: "host-init",
     method: "initialize",
-    params: body.params ?? {
-      protocolVersion: "2024-11-05",
-      capabilities: {},
-      clientInfo: { name: "oh-my-mcp-host", version: "1.2.0" },
+    params: {
+      protocolVersion: body.params?.protocolVersion ?? "2024-11-05",
+      capabilities: body.params?.capabilities ?? {},
+      clientInfo: body.params?.clientInfo ?? { name: "oh-my-mcp-host", version: "1.2.0" },
     },
   };
 
@@ -202,7 +204,7 @@ async function handleToolsList(
     }
   }
 
-  const tools = await toolCatalog.getAllTools(backends);
+    const tools = await toolCatalog.getAllTools(backends);
 
   res.status(200).json({
     jsonrpc: "2.0",
