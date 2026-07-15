@@ -91,6 +91,15 @@ async function main() {
   managementApp.use(requestIdMiddleware);
   // Request/Response logging
   managementApp.use(requestResponseLogging);
+  // Global request timeout for management API (2 minutes)
+  managementApp.use(timeoutMiddleware(120000));
+  // Enable compression in prod (disable in dev)
+  if (process.env.NODE_ENV !== 'development' && config.compression !== false) {
+    managementApp.use(compression({ threshold: 1024 })); // 1KB
+  }
+  // Metrics instrumentation (no auth required for /metrics) — mounted before any route
+  // so /health and / are also instrumented.
+  managementApp.use(metricsMiddleware);
 
   managementApp.get("/health", (req, res) => {
     res.json({ status: "ok", servers: manager.getAllServers().length });
@@ -108,14 +117,6 @@ async function main() {
       },
     });
   });
-  // Global request timeout for management API (2 minutes)
-  managementApp.use(timeoutMiddleware(120000));
-  // Enable compression in prod (disable in dev)
-  if (process.env.NODE_ENV !== 'development' && config.compression !== false) {
-    managementApp.use(compression({ threshold: 1024 })); // 1KB
-  }
-  // Metrics instrumentation (no auth required for /metrics)
-  managementApp.use(metricsMiddleware);
   managementApp.get('/metrics', async (req, res) => {
     const metrics = getMetrics();
     // Update server count gauges
