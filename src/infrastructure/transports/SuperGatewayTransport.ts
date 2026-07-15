@@ -159,6 +159,10 @@ export class SuperGatewayTransport implements ServerTransport {
     return true;
   }
 
+  canProxy(): boolean {
+    return false;
+  }
+
   /** Bind this transport to a specific server id for session-store lookup */
   setServerId(id: string): void {
     this.serverId = id;

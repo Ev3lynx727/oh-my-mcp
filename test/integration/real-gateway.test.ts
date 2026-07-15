@@ -104,8 +104,9 @@ servers:
     expect(everything.port).toBeGreaterThan(0);
   });
 
-  it('gateway returns 501 for supergateway-transport servers', async () => {
-    // Gateway only proxies stdio transport. Supergateway servers have their own HTTP endpoint.
+  it('gateway returns 501 for supergateway-transport servers (use MCP Host on management port)', async () => {
+    // Supergateway (streamableHttp) servers are not proxied by the 8090 gateway —
+    // clients should use the MCP Host at http://localhost:<managementPort>/mcp/server.
     const body = {
       jsonrpc: '2.0',
       id: 1,
@@ -118,6 +119,8 @@ servers:
       body: JSON.stringify(body),
     });
     expect(res.status).toBe(501);
+    const data = await res.json();
+    expect(data.error).toContain('/mcp/server');
   });
 
   it('should stop and start server via management API', async () => {

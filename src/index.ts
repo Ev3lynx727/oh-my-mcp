@@ -181,7 +181,7 @@ async function main() {
       return req.ip || 'unknown';
     },
   }));
-  gatewayApp.use(createGatewayAPI(manager));
+  gatewayApp.use(createGatewayAPI(manager, config));
   gatewayApp.use(errorHandler);
 
 

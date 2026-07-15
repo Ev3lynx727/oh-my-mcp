@@ -7,6 +7,10 @@ export class DirectStdioTransport implements ServerTransport {
     return false;
   }
 
+  canProxy(): boolean {
+    return true;
+  }
+
   getEndpoint(_server: MCPServer): string {
     return "stdio";
   }

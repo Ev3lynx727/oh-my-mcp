@@ -320,7 +320,7 @@ export class ServerManager {
     const transport = this.transports.get(id);
     if (!transport) return null;
 
-    if (transport.usesPort()) return { handled: false };
+    if (!transport.canProxy()) return { handled: false };
 
     // Cache hit for idempotent read methods
     if (body?.method && this.getCacheableMethods().includes(body.method)) {

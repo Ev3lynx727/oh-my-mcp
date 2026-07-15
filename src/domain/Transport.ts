@@ -55,4 +55,13 @@ export interface ServerTransport {
    * If true, the server should have an allocated port and the port should be released on stop if auto-allocated.
    */
   usesPort(): boolean;
+
+  /**
+   * Whether the gateway can proxy JSON-RPC requests for this transport.
+   *
+   * streamableHttp (SuperGatewayTransport) is request/response HTTP and CAN be
+   * proxied. stdio (DirectStdioTransport) cannot — clients must connect via the
+   * MCP Host on the management port instead.
+   */
+  canProxy(): boolean;
 }

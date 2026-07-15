@@ -1,10 +1,11 @@
 import express, { Request, Response, NextFunction } from "express";
 import { ServerManager } from "./server_manager.js";
 import { getLogger } from "./logger.js";
+import { Config } from "./config.js";
 
 const logger = getLogger();
 
-export function createGatewayAPI(manager: ServerManager) {
+export function createGatewayAPI(manager: ServerManager, config: Config) {
   const router = express.Router();
 
   router.use(async (req: Request, res: Response, _next: NextFunction) => {
@@ -52,10 +53,10 @@ export function createGatewayAPI(manager: ServerManager) {
     }
 
     // If we get here, proxyMCPRequest returned { handled: false }, meaning
-    // transport.usesPort() === true — the server listens on its own port.
-    // Return the SSE endpoint for clients to connect to directly.
+    // the transport cannot be proxied by the gateway (e.g. stdio transport).
+    // Clients should use the MCP Host on the management port instead.
     return res.status(501).json({
-      error: "Server uses SSE transport. Connect directly via SSE at http://localhost:" + server.port + "/sse",
+      error: "Server transport is not proxied by this gateway. Use the MCP Host at http://localhost:" + config.managementPort + "/mcp/server",
     });
   });
 

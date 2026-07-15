@@ -38,6 +38,10 @@ describe("DirectStdioTransport", () => {
     expect(new DirectStdioTransport().usesPort()).toBe(false);
   });
 
+  it("canProxy returns true (gateway proxies stdio via DirectStdioTransport)", () => {
+    expect(new DirectStdioTransport().canProxy()).toBe(true);
+  });
+
   it("getEndpoint returns stdio", () => {
     expect(new DirectStdioTransport().getEndpoint(null as any)).toBe("stdio");
   });

@@ -34,6 +34,10 @@ describe('SuperGatewayTransport', () => {
     expect(transport.usesPort()).toBe(true);
   });
 
+  it('canProxy returns false (supergateway handled by MCP Host, not 8090 gateway)', () => {
+    expect(transport.canProxy()).toBe(false);
+  });
+
   it('isReady polls until get succeeds', async () => {
     // First call throws, second succeeds
     mockGet.mockRejectedValueOnce(new Error('conn refused'));
