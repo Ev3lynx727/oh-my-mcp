@@ -1,0 +1,52 @@
+{
+  // JSON Schema for an oh-my-mcp MCP Host client configuration (.jsonc).
+  // The MCP Host is a standard MCP streamableHttp server. Point any MCP
+  // client (OpenCode, Claude Code, Cursor, etc.) at it with this shape.
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://oh-my-mcp.dev/schemas/client-config.json",
+  "title": "oh-my-mcp MCP Host Client Config",
+  "description": "Client-side config to connect to the oh-my-mcp MCP Host over streamableHttp.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["mcpServers"],
+  "properties": {
+    "mcpServers": {
+      "type": "object",
+      "description": "Map of logical server names to MCP server connection definitions.",
+      "additionalProperties": { "$ref": "#/$defs/mcpServer" }
+    }
+  },
+  "$defs": {
+    "mcpServer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "url"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "streamableHttp",
+          "description": "oh-my-mcp MCP Host speaks MCP streamableHttp (stateful sessions)."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "MCP Host endpoint. Single aggregated endpoint for all downstream servers.",
+          "default": "http://localhost:8080/mcp/server"
+        },
+        "headers": {
+          "type": "object",
+          "description": "HTTP headers sent on every request. Authorization is REQUIRED (Bearer token).",
+          "additionalProperties": { "type": "string" },
+          "properties": {
+            "Authorization": {
+              "type": "string",
+              "description": "Bearer token. Read from the server's auth-token file (64-char hex).",
+              "pattern": "^Bearer [A-Fa-f0-9]{64}$"
+            }
+          },
+          "required": ["Authorization"]
+        }
+      }
+    }
+  }
+}

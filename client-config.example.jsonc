@@ -1,0 +1,19 @@
+{
+  // $schema: ./client-config.schema.jsonc
+  // Example oh-my-mcp MCP Host client config (.jsonc).
+  // Drop this into your MCP client's config (e.g. OpenCode opencode.jsonc
+  // `mcpServers`, or Claude Code `claude_desktop_config.json`).
+  // The MCP Host aggregates ALL downstream servers (ark-exec, ark-memory,
+  // ark-resolve, mempalace, ark-gist, ark-delegator, cleancode, context7, exa)
+  // behind one endpoint with `serverId__`-namespaced tools.
+  "mcpServers": {
+    "oh-my-mcp": {
+      "type": "streamableHttp",
+      "url": "http://localhost:8080/mcp/server",
+      "headers": {
+        // 64-char hex token from ~/.config/oh-my-mcp/auth-token
+        "Authorization": "Bearer <paste-token-from-~/.config/oh-my-mcp/auth-token>"
+      }
+    }
+  }
+}
